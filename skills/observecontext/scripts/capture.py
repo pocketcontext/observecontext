@@ -110,7 +110,9 @@ def run(args):
         deadline = time.monotonic() + 1.5
         no_redirect = urllib.request.build_opener(type('TraceNoRedirect', (urllib.request.HTTPRedirectHandler,),
                                                      {'redirect_request': lambda *unused: None}))
-        request = urllib.request.Request(args.url.rstrip('/') + '/api/context/traces/' + request_id)
+        import oc
+        request = urllib.request.Request(args.url.rstrip('/') + '/api/context/traces/' + request_id,
+                                         headers={'User-Agent': oc.USER_AGENT})
         request.add_unredirected_header('Authorization', token)
         while True:
             try:

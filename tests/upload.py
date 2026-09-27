@@ -124,8 +124,10 @@ class CaptureUploadTests(unittest.TestCase):
             def log_message(self,*args):pass
             def do_GET(self):
                 seen.append((self.path,dict(self.headers)))
-                status=200
-                body=json.dumps(event()).encode() if self.path.startswith('/api/context/traces/') else b'{}'
+                retrieving=self.path.startswith('/api/context/traces/')
+                # Match the production edge policy: urllib's default agent is blocked.
+                status=403 if retrieving and self.headers.get('User-Agent','').startswith('Python-urllib/') else 200
+                body=json.dumps(event()).encode() if retrieving and status==200 else b'{}'
                 self.send_response(status);self.send_header('X-Context-Request-Id','a'*32)
                 self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
         class Queue:
@@ -143,6 +145,7 @@ class CaptureUploadTests(unittest.TestCase):
             self.assertEqual(seen[0][1]['X-Context-Trace'],'1')
             self.assertEqual(seen[0][1]['X-Context-Capture-Sql'],'1')
             self.assertEqual(seen[1][1]['Authorization'],'SOURCE_SECRET')
+            self.assertEqual(seen[1][1]['User-Agent'],oc.USER_AGENT)
             self.assertNotIn('X-Context-Trace',seen[1][1])
             self.assertNotIn('SOURCE_SECRET',json.dumps(queued))
 
