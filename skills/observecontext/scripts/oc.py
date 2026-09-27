@@ -389,7 +389,7 @@ def check(cfg):
 
 
 TRACE_FIELDS = ('version', 'request_id', 'correlation_id', 'service', 'method', 'route',
-                'started_at', 'duration_ms', 'status', 'user_id', 'sql', 'rows', 'truncated', 'spans')
+                'started_at', 'duration_ms', 'status', 'user_id', 'sql', 'rows', 'truncated', 'spans', 'operation')
 
 
 def literal(value):
@@ -420,6 +420,36 @@ def canonical(event):
     return fields
 
 
+def current_owner(cfg):
+    if not cfg.get('_owner_id'):
+        response = must(cfg, 'POST', '/api/collections/users/auth-refresh')
+        record = response.get('record', {})
+        if record.get('collectionName') != 'users' or not record.get('id'):
+            raise Fail(1, 'ordinary ObserveContext identity required')
+        cfg['_owner_id'] = record['id']
+    return cfg['_owner_id']
+
+
+def import_operation(cfg, event):
+    # Legacy JSONL has no operation. Correlated client/server envelopes share a
+    # deterministic import operation; the authenticated owner scopes the key.
+    key = hashlib.sha256(('legacy-import:' + (event.get('correlation_id') or
+                          event['service'] + ':' + event['request_id'])).encode()).hexdigest()[:32]
+    owner = current_owner(cfg)
+    lookup = ('SELECT id,source,correlation_id FROM operations WHERE owner=' + literal(owner)
+              + ' AND client_key=' + literal(key) + ' LIMIT 1')
+    existing = query(cfg, lookup)
+    if not existing:
+        status, record = call(cfg, 'POST', records('operations'),
+                              {'source': 'legacy-import', 'client_key': key, 'correlation_id': key})
+        if status == 200:
+            return record['id']
+        existing = query(cfg, lookup)
+    if existing and existing[0]['source'] == 'legacy-import' and existing[0]['correlation_id'] == key:
+        return existing[0]['id']
+    raise Fail(1, 'import operation creation failed or key conflicts; keep the file for retry')
+
+
 def ingest_one(cfg, event):
     if not isinstance(event, dict) or event.get('version') != 1:
         raise Fail(2, 'expected a version 1 trace object')
@@ -428,9 +458,13 @@ def ingest_one(cfg, event):
         raise Fail(2, 'unsupported trace fields: ' + ', '.join(sorted(extra)))
     if not isinstance(event.get('request_id'), str) or not isinstance(event.get('service'), str):
         raise Fail(2, 'trace requires request_id and service')
+    event = dict(event)
+    if not event.get('operation'):
+        event['operation'] = import_operation(cfg, event)
+    owner = current_owner(cfg)
     expected = canonical(event)
     lookup = ('SELECT ' + ','.join('"' + key + '"' for key in TRACE_FIELDS) +
-              ' FROM traces WHERE service=' + literal(event['service']) +
+              ' FROM traces WHERE created_by=' + literal(owner) + ' AND service=' + literal(event['service']) +
               ' AND request_id=' + literal(event['request_id']) + ' LIMIT 1')
     existing = query(cfg, lookup)
     if existing:
@@ -531,7 +565,7 @@ def run(args):
         return check(cfg)
     if args.command == 'dashboard':
         import dashboard
-        return dashboard.serve(cfg, args.port)
+        return dashboard.serve(cfg, args.port, args.public_origin)
     if args.command == 'whoami':
         response = must(cfg, 'POST', '/api/collections/users/auth-refresh')
         hide(response.get('token'))
@@ -544,6 +578,10 @@ def run(args):
         data = must(cfg, 'POST', '/api/context/query', {'sql': sql})
         if data.get('truncated'):
             say('Result truncated; narrow the query or page with a stable ordering.')
+    elif args.command == 'flush':
+        from uploader import Delivery
+        delivery = Delivery(sys.modules[__name__], cfg, args.spool, timeout=min(2, args.timeout))
+        data = {'delivered_pairs': delivery.flush(args.timeout)}
     elif args.command == 'ingest':
         data = ingest(cfg, args.file, args.follow)
     elif args.command == 'trace':
@@ -580,15 +618,22 @@ def parse(argv):
     trace = add('trace', 'inspect a request by request_id')
     trace.add_argument('request_id')
     trace.add_argument('--service')
+    flush_parser = add('flush', 'retry account-bound pending client/server telemetry')
+    flush_parser.add_argument('--spool', help='private queue base directory (default: account cache)')
+    flush_parser.add_argument('--timeout', type=int, choices=range(1, 121), default=30, metavar='1..120')
     ingest_parser = add('ingest', 'upload JSONL traces through REST; identical retries are safe')
     ingest_parser.add_argument('file')
     ingest_parser.add_argument('--follow', action='store_true', help='poll the active file and its .1 rotation each second')
     dashboard_parser = add('dashboard', 'serve a private loopback dashboard; tokens stay in Python')
     dashboard_parser.add_argument('--port', type=int, default=8766)
+    dashboard_parser.add_argument('--public-origin', help='exact HTTPS origin behind an authenticated proxy; does not provide authentication')
     capture_parser = add('capture', 'run an existing Python skill script with HTTP timing')
     capture_parser.add_argument('--url', required=True, help='origin of the application to trace')
     capture_parser.add_argument('--service', required=True, help='distinct client service label, e.g. peoplecontext-client')
-    capture_parser.add_argument('--output', required=True, help='private local JSONL output file')
+    capture_parser.add_argument('--output', help='optional legacy private JSONL client output (required without --upload)')
+    capture_parser.add_argument('--upload', action='store_true', help='retrieve own server trace and queue/upload both to ObserveContext')
+    capture_parser.add_argument('--spool', help='private pending queue base directory')
+    capture_parser.add_argument('--flush-timeout', type=int, choices=range(1, 121), default=10, metavar='1..120')
     capture_parser.add_argument('--capture-sql', action='store_true')
     capture_parser.add_argument('script', help='Python script path, without a python executable prefix')
     capture_parser.add_argument('arguments', nargs=argparse.REMAINDER)

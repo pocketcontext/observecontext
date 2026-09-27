@@ -39,6 +39,8 @@ jobs:
         run: CGO_ENABLED=1 go build -tags sqlite_math_functions -o bin/pocketcontext ./cmd/pocketcontext
       - name: Test trace ingestion and analysis
         run: python3 observecontext/tests/integration.py --binary pocketcontext/bin/pocketcontext
+      - name: Test migration of existing private operations
+        run: python3 observecontext/tests/migration.py --binary pocketcontext/bin/pocketcontext
       - name: Test authentication and deployment settings
         run: python3 observecontext/tests/auth.py --binary pocketcontext/bin/pocketcontext
       - name: Test Google OAuth claims and Workspace signup
@@ -53,5 +55,9 @@ jobs:
         run: python3 observecontext/tests/oauth.py
       - name: Test client utilities and dashboard access
         run: python3 observecontext/tests/client.py
+      - name: Test private upload queue
+        run: python3 observecontext/tests/upload.py
+      - name: Test opt-in retrieval and upload retry end to end
+        run: python3 observecontext/tests/upload_integration.py --binary pocketcontext/bin/pocketcontext
       - name: Test request tracing end to end
         run: python3 observecontext/tests/tracing.py --binary pocketcontext/bin/pocketcontext

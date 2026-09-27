@@ -1,18 +1,106 @@
 <!doctype html>
-<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ObserveContext</title>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ObserveContext</title>
 <style>
-:root{color-scheme:light;font:15px/1.5 system-ui,sans-serif;color:#18312e;background:#f3f6f5}*{box-sizing:border-box}body{margin:0}main{max-width:1250px;margin:auto;padding:24px}header{display:flex;justify-content:space-between;align-items:center;gap:20px}h1{font-size:28px;letter-spacing:-1px;margin:0}h2{font-size:20px;margin:0 0 12px}p{margin:8px 0;color:#526762}section{background:#fff;border:1px solid #d6e1dc;border-radius:12px;padding:20px;margin:20px 0}button{font:inherit;border:1px solid #42665c;background:#fff;color:#18312e;border-radius:6px;padding:7px 12px;cursor:pointer}button:hover{background:#edf6f1}button:focus-visible{outline:3px solid #dd8c35;outline-offset:3px}.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13px;text-align:left}th,td{padding:10px;border-bottom:1px solid #e7ede9;vertical-align:top}th{white-space:nowrap;color:#526762}td.route{max-width:400px;overflow-wrap:anywhere}.number{white-space:nowrap;font-variant-numeric:tabular-nums}.error{color:#a22a29}#status{font-size:13px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f6f5;padding:14px;border-radius:6px}#detail[hidden]{display:none}.span{display:grid;grid-template-columns:minmax(140px,1fr) 2fr 90px;gap:12px;align-items:center;font-size:13px;margin:10px 0}.track{background:#edf2ef;height:14px;border-radius:3px}.bar{height:14px;background:#357b65;border-radius:3px}.muted{color:#526762}#notice{min-height:24px}@media(max-width:600px){main{padding:12px}header{align-items:flex-start}section{padding:12px}.span{grid-template-columns:1fr 1fr 65px;gap:6px}h1{font-size:24px}}
+:root{color-scheme:light;font:15px/1.5 system-ui,sans-serif;color:#18312e;background:#f3f6f5}*{box-sizing:border-box}body{margin:0}main{max-width:1320px;margin:auto;padding:24px}header,.section-heading{display:flex;justify-content:space-between;align-items:center;gap:20px}h1{font-size:28px;letter-spacing:-1px;margin:0}h2{font-size:20px;margin:0 0 8px}h3{font-size:15px;margin:0}p{margin:8px 0;color:#526762}section,.panel{background:#fff;border:1px solid #d6e1dc;border-radius:12px;padding:20px;margin:20px 0}button,input{font:inherit;border:1px solid #42665c;background:#fff;color:#18312e;border-radius:6px;padding:7px 12px}button{cursor:pointer}button:hover{background:#edf6f1}button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #dd8c35;outline-offset:3px}.scroll{overflow-x:auto}.recent-scroll{max-height:560px;overflow:auto}.recent-scroll th{position:sticky;top:0;background:#fff;z-index:1}table{width:100%;border-collapse:collapse;font-size:13px;text-align:left}th,td{padding:10px;border-bottom:1px solid #e7ede9;vertical-align:top}th{white-space:nowrap;color:#526762}td.route{max-width:390px;overflow-wrap:anywhere}.number{white-space:nowrap;font-variant-numeric:tabular-nums}.error{color:#a22a29}#status,.muted,small{font-size:13px;color:#526762}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f6f5;padding:14px;border-radius:6px}#detail[hidden]{display:none}.span{display:grid;grid-template-columns:minmax(140px,1fr) 2fr 100px;gap:12px;align-items:center;font-size:13px;margin:10px 0}.track{background:#edf2ef;height:14px;border-radius:3px}.bar{height:14px;background:#357b65;border-radius:3px}#notice{min-height:24px}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}.card{border:1px solid #d6e1dc;background:white;border-radius:10px;padding:16px}.card strong{display:block;font-size:25px;font-weight:600}.badge{display:inline-block;background:#edf2ef;border-radius:4px;padding:2px 6px;font-size:12px;white-space:nowrap}.badge.paired{background:#e2f1e9;color:#205c42}.subline{display:block;font-size:12px;color:#526762;margin-top:4px}.selected{background:#edf6f1}#identity{overflow-wrap:anywhere}.measurement{border-top:1px solid #d6e1dc;padding-top:16px;margin-top:20px}.measurement summary,details.panel>summary{cursor:pointer}label{font-size:13px}label input{display:block;width:260px;max-width:100%;margin-top:4px}#empty{padding:15px 0}#timing-note{max-width:850px}@media(max-width:600px){main{padding:12px}header,.section-heading{align-items:flex-start}.section-heading{flex-direction:column;gap:10px}section,.panel{padding:12px}.span{grid-template-columns:1fr 1fr 75px;gap:6px}h1{font-size:24px}.cards{gap:6px}.card{padding:10px}.card strong{font-size:20px}label,label input{width:100%}}
 </style>
-<main><header><div><h1>ObserveContext</h1><p>Where your requests spend time.</p></div><button id="refresh" type="button">Refresh</button></header>
-<div id="status" role="status" aria-live="polite">Loading requests…</div><div id="notice" class="error" role="alert"></div>
-<section><h2>Last 24 hours</h2><p>Request totals and latency by service and route.</p><div class="scroll"><table><thead><tr><th>Service / route</th><th>Requests</th><th>Average</th><th>Maximum</th><th>Errors</th></tr></thead><tbody id="report"></tbody></table></div></section>
-<section><h2>Recent requests</h2><p>Latest 50 completed requests. Refreshes every five seconds.</p><div class="scroll"><table><thead><tr><th>Started</th><th>Service</th><th>Operation</th><th>Duration</th><th>Status</th><th>Trace</th></tr></thead><tbody id="recent"></tbody></table></div></section>
-<section id="detail" hidden tabindex="-1"><h2>Request details</h2><p id="identity"></p><pre id="sql"></pre><div id="spans"></div><p class="muted">Some phases contain other phases. Their durations must not be added together. Client timing includes network and response reading; server timing is measured separately.</p></section>
-</main><script>
-const $=id=>document.getElementById(id);const ms=n=>Number(n).toFixed(2)+' ms';
-function cell(row,value,cls=''){let td=document.createElement('td');td.textContent=value;td.className=cls;row.append(td);return td}
+<main>
+<header><div><h1>ObserveContext</h1><p>One operation. Client and server timings together.</p></div><button id="refresh" type="button">Refresh</button></header>
+<div id="status" role="status" aria-live="polite">Loading operations…</div><div id="notice" class="error" role="alert"></div>
+<div class="cards" aria-label="Recent operation totals"><div class="card"><small>Recent operations</small><strong id="operation-count">—</strong></div><div class="card"><small>Client + server paired</small><strong id="paired-count">—</strong></div><div class="card"><small>Operations with errors</small><strong id="error-count">—</strong></div></div>
+<section>
+<div class="section-heading"><div><h2>Recent operations</h2><p>Client and server measurements of each owned operation appear once. Times are Europe/Berlin. Refreshes every five seconds.</p></div><label>Filter operations<input id="filter" type="search" placeholder="Service, route or status" autocomplete="off"></label></div>
+<p id="window-note" class="muted"></p>
+<div class="scroll recent-scroll"><table><thead><tr><th>Started</th><th>Operation</th><th>Client</th><th>Server</th><th>Status</th><th>Measurements</th><th>Details</th></tr></thead><tbody id="recent"></tbody></table></div><p id="empty" hidden>No matching operations.</p>
+</section>
+<section id="detail" hidden tabindex="-1">
+<h2 id="detail-title">Operation details</h2><p id="identity"></p>
+<div class="cards"><div class="card"><small>Client elapsed</small><strong id="client-time">—</strong></div><div class="card"><small>Server elapsed</small><strong id="server-time">—</strong></div><div class="card"><small>Client − server</small><strong id="difference">—</strong></div></div>
+<p id="timing-note"></p><h3>SQL</h3><pre id="sql"></pre><div id="measurements"></div>
+</section>
+<details class="panel"><summary>Trace measurements · last 24 hours</summary><p>Each client or server trace is counted separately in this diagnostic summary. These are measurement counts, not operation counts.</p><div class="scroll"><table><thead><tr><th>Service / route</th><th>Measurements</th><th>Average</th><th>Maximum</th><th>Errors</th></tr></thead><tbody id="report"></tbody></table></div></details>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const ms=n=>Number(n).toFixed(2)+' ms';
+const berlinTime=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Berlin',year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3,hourCycle:'h23',timeZoneName:'short'});
+function timestamp(value){const date=value instanceof Date?value:new Date(String(value).replace(' ','T'));return Number.isNaN(date.getTime())?'Unknown time':berlinTime.format(date)}
+function node(tag,text,cls=''){const el=document.createElement(tag);if(text!==undefined)el.textContent=text;el.className=cls;return el}
+function cell(row,value,cls=''){const td=node('td',value,cls);row.append(td);return td}
+function failure(t){return t.status===0||t.status>=400}
+function role(t){return ['client','server'].includes(t.kind)?t.kind:'unknown'}
+function groupOperations(traces){
+ const groups=new Map();
+ for(const t of traces){const key=t.operation?'operation:'+t.operation:'trace:'+t.id;if(!groups.has(key))groups.set(key,{key,traces:[]});groups.get(key).traces.push(t)}
+ return [...groups.values()].map(op=>{
+  op.clients=op.traces.filter(t=>role(t)==='client');op.servers=op.traces.filter(t=>role(t)==='server');
+  op.primary=op.clients[0]||op.servers[0]||op.traces[0];op.service=(op.servers[0]||op.primary).service;
+  op.started=op.traces.map(t=>t.started_at).sort()[0];op.paired=op.clients.length===1&&op.servers.length===1&&op.traces.length===2;
+  op.errors=op.traces.some(failure);return op;
+ }).sort((a,b)=>b.started.localeCompare(a.started)||a.key.localeCompare(b.key));
+}
+function elapsed(traces){return traces.length===1?ms(traces[0].duration_ms):traces.length?traces.length+' traces':'—'}
+function pairing(op){if(op.paired)return 'Client + server';if(op.traces.length>1)return op.traces.length+' measurements';return role(op.primary)==='unknown'?'Unclassified':role(op.primary)==='client'?'Client only':'Server only'}
+function status(op){const values=[...new Set(op.traces.map(t=>t.status===0?'Transport error':String(t.status)))];return values.join(' / ')}
 async function get(path){const r=await fetch(path,{cache:'no-store'});if(!r.ok)throw Error('Cannot load traces. Check your login and the server connection.');return r.json()}
-async function detail(id){try{const d=await get('trace?id='+encodeURIComponent(id));if(!d.trace)throw Error('This trace is no longer available.');const t=d.trace;$('detail').hidden=false;$('identity').textContent=t.service+' · '+t.request_id+' · '+ms(t.duration_ms)+' · correlation '+(t.correlation_id||'none');$('sql').textContent=t.sql||'SQL text was not captured.';$('spans').replaceChildren();for(const s of d.spans){let row=document.createElement('div');row.className='span';let name=document.createElement('span');name.textContent=s.name;let track=document.createElement('div');track.className='track';let bar=document.createElement('div');bar.className='bar';const total=Math.max(Number(t.duration_ms),0.001);bar.style.marginLeft=Math.min(100,100*s.offset_ms/total)+'%';bar.style.width=Math.max(0,Math.min(100-100*s.offset_ms/total,100*s.duration_ms/total))+'%';track.append(bar);let duration=document.createElement('span');duration.textContent=ms(s.duration_ms);row.append(name,track,duration);$('spans').append(row)}$('detail').focus();$('notice').textContent=''}catch(e){$('notice').textContent=e.message}}
-let loading=false;async function refresh(){if(loading)return;loading=true;$('refresh').disabled=true;try{const d=await get('data');$('report').replaceChildren();$('recent').replaceChildren();for(const r of d.report){const tr=document.createElement('tr');cell(tr,r.service+' · '+r.method+' '+r.route,'route');cell(tr,r.requests,'number');cell(tr,ms(r.avg_ms),'number');cell(tr,ms(r.max_ms),'number');cell(tr,r.errors,r.errors?'error':'');$('report').append(tr)}for(const r of d.recent){const tr=document.createElement('tr');cell(tr,r.started_at);cell(tr,r.service);cell(tr,r.method+' '+r.route,'route');cell(tr,ms(r.duration_ms),'number');cell(tr,r.status===0?'Transport error':r.status,r.status===0||r.status>=400?'error':'');const td=cell(tr,'');const button=document.createElement('button');button.textContent='Inspect';button.setAttribute('aria-label','Inspect '+r.service+' request '+r.request_id);button.onclick=()=>detail(r.id);td.append(button);$('recent').append(tr)}$('status').textContent=d.recent.length?'Updated '+new Date().toLocaleTimeString():'No traces yet. Start a collector to see completed requests.';$('notice').textContent=''}catch(e){$('notice').textContent=e.message;$('status').textContent='Refresh failed; showing the last loaded data.'}finally{loading=false;$('refresh').disabled=false}}
-$('refresh').onclick=refresh;refresh();setInterval(refresh,5000);
-</script></html>
+let operations=[],selected=null,detailVersion=0;
+function renderOperations(){
+ const filter=$('filter').value.trim().toLowerCase();$('recent').replaceChildren();let visible=0;
+ for(const op of operations){
+  const searchable=op.traces.map(t=>[t.service,t.method,t.route,t.status,t.correlation_id].join(' ')).join(' ').toLowerCase();if(filter&&!searchable.includes(filter))continue;
+  visible++;const tr=node('tr',undefined,op.key===selected?'selected':'');cell(tr,timestamp(op.started),'number');
+  const operation=cell(tr,op.primary.method+' '+op.primary.route,'route');operation.append(node('span',op.service,'subline'));
+  cell(tr,elapsed(op.clients),'number');cell(tr,elapsed(op.servers),'number');cell(tr,status(op),op.errors?'error':'');
+  cell(tr,'').append(node('span',pairing(op),'badge'+(op.paired?' paired':'')));
+  const button=node('button','Inspect');button.type='button';button.setAttribute('aria-label','Inspect '+op.primary.method+' '+op.primary.route+' operation '+op.primary.request_id);button.onclick=()=>showDetail(op,true);cell(tr,'').append(button);$('recent').append(tr);
+ }
+ $('empty').hidden=visible!==0;$('operation-count').textContent=operations.length;$('paired-count').textContent=operations.filter(op=>op.paired).length;$('error-count').textContent=operations.filter(op=>op.errors).length;
+}
+async function showDetail(op,focus=false){
+ const version=++detailVersion;selected=op.key;renderOperations();
+ try{
+  // An operation can have many measurements. Keep the
+  // detail fetch bounded and make the omission explicit, without inventing a pair.
+  const details=await Promise.all(op.traces.slice(0,20).map(t=>get('trace?id='+encodeURIComponent(t.id))));
+  if(version!==detailVersion)return;
+  if(details.some(d=>!d.trace))throw Error('An operation measurement is no longer available.');
+  $('detail').hidden=false;$('detail-title').textContent=op.primary.method+' '+op.primary.route;
+  $('identity').textContent=op.service+' · '+timestamp(op.started)+' · operation '+(op.primary.operation||'unknown')+' · correlation '+(op.primary.correlation_id||'not supplied');
+  $('client-time').textContent=elapsed(op.clients);$('server-time').textContent=elapsed(op.servers);
+  const diff=op.paired?op.clients[0].duration_ms-op.servers[0].duration_ms:null;
+  $('difference').textContent=diff===null?'—':ms(diff);
+  $('timing-note').textContent=op.paired?(diff<0?'Server duration exceeds client duration in this pair. Measurement boundaries differ; this is not a network latency estimate.':'Server time is included in client elapsed time. The difference includes transport and client overhead; do not add the two durations.'):'A client/server comparison requires exactly one measurement of each kind. A missing measurement may arrive on the next refresh.';
+  const sql=[...new Set(details.map(d=>d.trace.sql).filter(Boolean))];
+  $('sql').textContent=sql.length===1?sql[0]:sql.length?'SQL differs between measurements; see each measurement below.':'SQL text was not captured.';
+  $('measurements').replaceChildren();
+  if(op.traces.length>20)$('measurements').append(node('p','Showing 20 of '+op.traces.length+' measurements. Use SQL to inspect the full operation.'));
+  details.forEach((d,i)=>{
+   const t=d.trace;const kind=role(op.traces[i]);const article=node('article',undefined,'measurement');
+   article.append(node('h3',(kind==='client'?'Client':kind==='server'?'Server':'Unclassified')+' · '+t.service+' · '+ms(t.duration_ms)));
+   article.append(node('p',t.method+' '+t.route+' · '+(t.status===0?'Transport error':'HTTP '+t.status),'muted'));
+   if(sql.length>1&&t.sql)article.append(node('pre',t.sql));
+   if(d.spans.length){article.append(node('p',kind==='server'?'Server phases, relative to server duration. Phases may overlap.':'Measured phases, relative to this trace duration.','muted'));
+    for(const s of d.spans){const row=node('div',undefined,'span');const track=node('div',undefined,'track');const bar=node('div',undefined,'bar');const total=Math.max(Number(t.duration_ms),.001);const start=Math.max(0,Math.min(100,100*s.offset_ms/total));bar.style.marginLeft=start+'%';bar.style.width=Math.max(0,Math.min(100-start,100*s.duration_ms/total))+'%';track.append(bar);row.append(node('span',s.name),track,node('span',ms(s.duration_ms),'number'));article.append(row)}
+   }else article.append(node('p','No phase breakdown recorded.','muted'));
+   const raw=node('details');raw.append(node('summary','Trace identity'),node('pre','Request ID: '+t.request_id+'\nStarted: '+timestamp(t.started_at)));article.append(raw);$('measurements').append(article);
+  });
+  $('notice').textContent='';if(focus)$('detail').focus();
+ }catch(e){if(version===detailVersion)$('notice').textContent=e.message}
+}
+let loading=false;
+async function refresh(){
+ if(loading)return;loading=true;$('refresh').disabled=true;
+ try{
+  const d=await get('data');operations=groupOperations(d.recent);renderOperations();$('report').replaceChildren();
+  for(const r of d.report){const tr=node('tr');cell(tr,r.service+' · '+r.method+' '+r.route,'route');cell(tr,r.requests,'number');cell(tr,ms(r.avg_ms),'number');cell(tr,ms(r.max_ms),'number');cell(tr,r.errors,r.errors?'error':'');$('report').append(tr)}
+  $('window-note').textContent=d.recent_limited?'Measurement limit reached; some operations may be incomplete.':'Latest 50 operations visible to your account. Unpaired measurements remain visible.';
+  $('status').textContent=operations.length?'Updated '+timestamp(new Date()):'No operations yet. Start a collector to see completed requests.';$('notice').textContent='';
+  const current=operations.find(op=>op.key===selected);if(current)await showDetail(current);
+ }catch(e){$('notice').textContent=e.message;$('status').textContent='Refresh failed; showing the last loaded data.'}
+ finally{loading=false;$('refresh').disabled=false}
+}
+$('refresh').onclick=refresh;$('filter').oninput=renderOperations;refresh();setInterval(refresh,5000);
+</script>
+</html>

@@ -109,7 +109,7 @@ def main():
         for options in [{'hd': None}, {'hd': 'outside.com'}, {'verified': False}, {'verified': 'true'},
                         {'email': 'member@outside.com'}, {'wrong_verifier': True}]:
             exchange(**options, expected=(400, 403))
-        auth = exchange(create_data={'disabled': True, 'name': 'Forged', 'id': 'forged000000001'})
+        auth = exchange(create_data={'disabled': True, 'can_view_all_traces':True, 'name': 'Forged', 'id': 'forged000000001'})
         assert auth['record']['id'] == user['id'] and auth['record']['name'] == signup['name']
         assert not auth['record']['disabled']
         assert exchange()['record']['id'] == user['id']
@@ -130,12 +130,12 @@ def main():
         assert request('GET', '/api/collections/users/records', token=admin)['totalItems'] == 1
         # First verified Workspace login creates a standard users identity and
         # directory entry, ignoring every untrusted client provisioning field.
-        forged = {**signup, 'id': 'forged000000001', 'disabled': True, 'name': 'Forged', 'email': 'attacker@outside.com'}
+        forged = {**signup, 'id': 'forged000000001', 'disabled': True, 'can_view_all_traces':True, 'name': 'Forged', 'email': 'attacker@outside.com'}
         fresh = exchange(email='new@example.com', create_data=forged)
         new_user = fresh['record']
         assert new_user['collectionName'] == 'users' and new_user['id'] != forged['id']
         assert new_user['email'] == 'new@example.com' and new_user['name'] == 'Google name'
-        assert new_user['verified'] and not new_user['disabled']
+        assert new_user['verified'] and not new_user['disabled'] and not new_user['can_view_all_traces']
         assert request('GET', '/api/collections/user_directory/records/' + new_user['id'], token=admin)['name'] == 'Google name'
         assert exchange(email='new@example.com')['record']['id'] == new_user['id']
         request('POST', '/api/collections/users/auth-with-password', {

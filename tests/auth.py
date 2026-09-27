@@ -35,7 +35,8 @@ def main():
         request('GET', '/api/collections/users/records/dirfailure00001', token=admin, expected=404)
         path = '/api/collections/users/records/' + user['id']
         token = request('POST', '/api/collections/users/auth-with-password', credentials)['token']
-        trace = request('POST', '/api/collections/traces/records', fixture(), token)
+        operation=request('POST','/api/collections/operations/records',{'source':'auth-test'},token)
+        trace = request('POST', '/api/collections/traces/records', fixture(operation=operation['id']), token)
         trace_path = '/api/collections/traces/records/' + trace['id']
         # Users cannot manage their own access state, even if submitting the current value.
         for value in (True, False):

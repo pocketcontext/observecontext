@@ -1,54 +1,62 @@
-# Instrumentation and collection
+# Client-requested tracing
 
-The complete path is: an existing Python skill sends an HTTP request with a correlation ID; the instrumented PocketContext server emits its completed trace to a private JSONL spool; `oc.py ingest` imports that spool through ordinary authenticated REST; SQL and the dashboard read ObserveContext. Neither the app nor the server depends on an LLM telemetry service.
+The normal path is an authenticated skill request, an owner-scoped trace in the source server's short-lived memory buffer, then the same client fetching and uploading that trace alongside its client measurement. The source server never receives ObserveContext credentials. No server trace file or separate collector is needed.
 
-## Server
+## Source server
 
-Build the server revision in ObserveContext's `POCKETCONTEXT_VERSION`. Adopt it intentionally in each source application's own pin after running that application's compatibility checks. Add this top-level member to the source app's existing `pocketcontext.json` and restart:
+The buffer mode requires the newer local PocketContext implementation; the last published server pin does not include it yet. Coordinate and test each source application's adoption before release. Add this top-level member to its `pocketcontext.json` and restart:
 
 ```json
 "tracing": {
   "enabled": true,
-  "service": "peoplecontext",
-  "path": "./pb_data/traces.jsonl",
-  "captureSql": false,
+  "delivery": "buffer",
+  "service": "dealcontext.server",
+  "captureSql": true,
   "maxBytes": 16777216
 }
 ```
 
-The parent directory must already exist and be private. Keep one spool per server process. Authenticated ordinary-user API requests are captured; health requests, guests and superusers are omitted. HTTP responses include `X-Context-Request-Id`. Set `captureSql` only if all ObserveContext Workspace users may read SQL literals. No row results or REST bodies are recorded.
+An authenticated ordinary user's request must send `X-Context-Trace: 1` to opt in. SQL text additionally requires `X-Context-Capture-Sql: 1` and server `captureSql: true`. The client sets these headers; ordinary unwrapped requests do not opt in. Health, authentication, guests, superusers and trace retrieval are excluded. Responses expose `X-Context-Request-Id`; the requesting account can retrieve its completed envelope from `GET /api/context/traces/{request_id}` using the same source authentication. Another account cannot retrieve it. Revocation/token-key rotation invalidates access to buffered traces.
 
-Server spans are `auth`, `sql.prepare` (including connection-pool waiting), `sql.execute`, `sql.scan` (including SQLite stepping and result accumulation), `response.encode`, and for filtered mode `snapshot.wait`, `snapshot.build`, `snapshot.reader_init`. These are elapsed durations, not CPU profiles. `sql.execute` alone is not the full SQLite query cost; include scan. REST currently reports total duration. No cache or database engine is changed by tracing.
+The buffer retains traces for at most 120 seconds, with global and per-account count/byte bounds. Restart, expiry and overflow lose buffered telemetry. It is diagnostic data, not durable audit history. Keep ObserveContext's own tracing disabled.
 
-The writer keeps up to 256 queued traces and two files: `traces.jsonl` and `traces.jsonl.1`, each bounded by `maxBytes`. It reports dropped counts without trace payloads. It is diagnostic telemetry, not durable audit evidence. A slow collector can lose old rotations; a crash can lose queued records. Keep ObserveContext's own tracing disabled to avoid collection recursively generating more traces.
+Measured phases include `auth`, `sql.prepare`, `sql.execute`, `sql.scan`, `response.encode`, and filtered-snapshot `snapshot.wait`, `snapshot.build`, `snapshot.reader_init`. SQLite work includes query scanning, not only `sql.execute`. REST currently supplies total server time rather than individual domain hooks. Overlapping spans must not be summed.
 
-## Existing skill clients
+## Capture and upload
 
-Wrap a standard-library Python client without editing it. Supply its usual app credentials/login cache as before. The wrapper needs no ObserveContext credentials until ingestion:
-
-```sh
-python3 /path/to/observecontext/scripts/oc.py capture \
-  --url https://people.example.com \
-  --service peoplecontext-client \
-  --output /private/client.jsonl \
-  /path/to/peoplecontext/scripts/pc.py query 'SELECT id FROM employees LIMIT 5'
-```
-
-Use the actual installed client's command names. `capture` runs a Python script in the same process and wraps `urllib.request`; do not put `python3` before the script argument. Requests to other origins, authentication endpoints, file downloads and non-API traffic are excluded. Existing Google login should be completed before wrapping an operation. Add `--capture-sql` only when sharing that SQL is intended. Authenticated source identity is recorded by the server, not inferred from client tokens.
-
-Client and server traces have separate request IDs and service labels. Join on `correlation_id` to compare them. The client injects a fresh `X-Context-Correlation-Id` per captured request; the server validates it. Client spans measure through full response reading/closing, including transport and client consumption. Status zero means a transport failure before an HTTP response. It cannot attribute that failure to a specific server phase. The wrapper does not capture networking in child processes or non-urllib libraries. Client output is append-only, private JSONL; rotate/archive it between runs as needed.
-
-## Collector
-
-Run on the host that can read the private spool, with an ordinary ObserveContext account:
+Sign in to the source app through its own client first. Configure and sign in to ObserveContext separately:
 
 ```sh
 export OBSERVECONTEXT_URL=https://observe.example.com
 export OBSERVECONTEXT_USER_EMAIL=you@example.com
-python3 /path/to/observecontext/scripts/oc.py login --google
-python3 /path/to/observecontext/scripts/oc.py ingest /private/traces.jsonl --follow
+python3 /skill/scripts/oc.py login --google
+python3 /skill/scripts/oc.py capture \
+  --url https://crm.example.com --service dealcontext.client --upload \
+  /deal-skill/scripts/dc.py sql 'SELECT id FROM organizations LIMIT 5'
 ```
 
-The collector checks both `.1` and the active file once per second. It keeps in-memory offsets; on restart it replays available records and compares existing content through SQL. Identical `(service,request_id)` submissions are skipped. Different content for an existing key fails instead of overwriting. This is an at-least-once retry strategy over the available spool, not a guarantee that every request was retained. A transport error stops the collector with the source file untouched: restart it after restoring connectivity. A malformed record also stops collection so later records are not silently skipped. Source times are normalized to UTC milliseconds by PocketBase; elapsed durations retain fractional milliseconds.
+Use the source client's actual command names and normal credentials/cache. Pass a Python script, without a `python3` prefix. The wrapper supports `urllib.request` in that process, not arbitrary subprocesses or other HTTP libraries. Only the exact source origin's SQL/schema, ordinary record APIs and batch endpoint are captured. Authentication requests and arbitrary URL paths are excluded. Authenticated redirects are refused so source credentials cannot be forwarded to another destination. Source trace retrieval uses its own nonredirecting HTTP request and the source token held only in memory.
 
-New traces appear in the dashboard after upload; the page polls every five seconds. No in-flight span stream is provided. See the skill's [SQL examples](../skills/observecontext/references/examples.md) for correlation and phase analysis.
+Add `--capture-sql` only when SQL literals may be retained. Headers, tokens, URL queries, REST bodies and query results are never stored. The wrapper fetches server traces immediately after consuming/closing the source response, with bounded retries for completion races. If unavailable, it reports the omission and retains the client measurement. Source credentials are not saved for later retrieval.
+
+One wrapper invocation creates one ObserveContext operation. All its client and server traces link to that API-assigned operation ID. Each HTTP pair also has a fresh correlation ID for timing comparison, but correlation strings are never access-control keys. The authenticated ObserveContext uploader owns the operation and traces; source user IDs and service labels are reported metadata. Ordinary users see their own uploads. An operator-managed `can_view_all_traces` flag permits broader reads without permission to append to another user's operation.
+
+Client duration covers HTTP through response consumption. Source retrieval and ObserveContext delivery are excluded. Client and server use different clocks; client-minus-server is not pure network latency.
+
+## Pending delivery
+
+Completed pairs are atomically persisted in a private local queue before upload. Default location is `$XDG_CACHE_HOME/observecontext/pending/<account-key>` (or `~/.cache`), capped at 16 MiB per account. Files have mode 0600 and contain no authentication tokens. Stable operation keys and trace IDs permit exact-content replay after uncertain network responses. Identifiers are scoped by the authenticated owner, including when a broad viewer uploads data.
+
+The wrapper uses a cached ObserveContext identity, or briefly authenticates if none exists. If no identity can be established, it warns and runs the source command; sign in first to enable durable telemetry. Delivery failures do not change the source command's exit status. Source trace retrieval has a 1.5-second request deadline; final upload defaults to a 10-second total deadline with individual HTTP calls bounded to two seconds. `--flush-timeout` changes the final bound.
+
+```sh
+python3 /skill/scripts/oc.py flush
+```
+
+`flush` verifies the live ordinary identity against the queued account binding. It never replays another user's queue. `--spool DIR` selects the same alternative queue base used by capture; `--timeout` bounds replay. A conflicting ID stops replay and leaves the queued pair intact. Capacity or disk failures are reported without failing the original command; telemetry may then be lost. Source buffers expire and completed stored traces currently have no automatic retention.
+
+## Legacy file collection
+
+Existing file delivery remains supported explicitly. Source tracing with `delivery: "file"` and a private `path` uses bounded JSONL rotation. Legacy `capture --output /private/client.jsonl` produces client JSONL without requesting buffered traces. `oc.py ingest /private/server.jsonl --follow` reads active and `.1` files, with owner-scoped exact-content retries. Envelopes without `operation` receive deterministic import operations, grouping matching correlation IDs. This mode requires access to server files and can lose data through missed rotations; it is not needed for client-requested buffer delivery.
+
+The dashboard shows completed uploaded traces and groups by operation IDs; it polls every five seconds. SQL remains the ad hoc analysis interface.

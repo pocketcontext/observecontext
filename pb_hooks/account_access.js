@@ -26,7 +26,8 @@ function authenticate(e) {
 }
 
 function update(e) {
-  if (e.record.getBool("disabled") !== e.record.original().getBool("disabled")) {
+  if (e.record.getBool("disabled") !== e.record.original().getBool("disabled") ||
+      e.record.getBool("can_view_all_traces") !== e.record.original().getBool("can_view_all_traces")) {
     // Persisted in the same transaction. Re-enabling never revives old tokens.
     // PocketBase also clears matching realtime client auth when this key changes.
     e.record.refreshTokenKey();

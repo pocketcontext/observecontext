@@ -5,11 +5,8 @@ function finite(value, field, max=86400000) {
 function ingest(e) {
   if(!e.auth||e.auth.collection().name!=='users'||e.auth.getBool('disabled')) throw new ForbiddenError('Ingest with an enabled ordinary user.');
   const body=JSON.parse(JSON.stringify(e.requestInfo().body));
-  const allowed=['operation','version','request_id','correlation_id','service','method','route','started_at','duration_ms','status','user_id','sql','rows','truncated','spans'];
+  const allowed=['version','request_id','correlation_id','service','method','route','started_at','duration_ms','status','user_id','sql','rows','truncated','spans'];
   for(const key of Object.keys(body)) if(!allowed.includes(key)) invalid('Unknown or server-managed trace field: '+key);
-  if(typeof body.operation!=='string'||!/^[a-z0-9]{15}$/.test(body.operation))invalid('operation must identify an owned operation');
-  const operation=e.app.findRecordById('operations',body.operation);
-  if(operation.getString('owner')!==e.auth.id)throw new ForbiddenError('Only an operation owner may append traces.');
   if(body.version!==1) invalid('version must be 1');
   finite(body.duration_ms,'duration_ms');
   if(typeof body.status!=='number'||!Number.isInteger(body.status)||(body.status!==0&&body.status<100)||body.status>599) invalid('Invalid HTTP status');
@@ -43,12 +40,4 @@ function ingest(e) {
     } finally {e.app=original;}
   });
 }
-function operation(e){
-  if(!e.auth||e.auth.collection().name!=='users'||e.auth.getBool('disabled'))throw new ForbiddenError('Create operations with an enabled ordinary user.');
-  const body=e.requestInfo().body;
-  for(const key of Object.keys(body))if(!['source','correlation_id','client_key'].includes(key))invalid('Unknown or server-managed operation field: '+key);
-  if(typeof body.source!=='string')invalid('source must be text');
-  for(const field of ['correlation_id','client_key'])if(body[field]!==undefined&&typeof body[field]!=='string')invalid(field+' must be text');
-  e.record.set('owner',e.auth.id);return e.next();
-}
-module.exports={ingest,operation};
+module.exports={ingest};

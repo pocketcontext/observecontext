@@ -2,31 +2,38 @@
 
 Replace `/skill` with the installed skill directory.
 
-## Inspect a request
+## Inspect an operation
 
-Run `python3 /skill/scripts/oc.py recent --pretty`, then `trace REQUEST_ID --service SERVICE`. Correlate client/server by `correlation_id` and inspect spans through SQL. If no server trace exists, confirm the source adopted the instrumented server pin and enabled its tracing configuration. Normal application activity alone does not enable tracing.
+Run `python3 /skill/scripts/oc.py recent --pretty`, then `trace REQUEST_ID --service SERVICE`. Group measurements by their API-assigned `operation` ID. Correlation IDs match HTTP client/server pairs inside the operation but do not establish visibility. SQL already filters for the requester; broad viewers should include operation/owner predicates when selecting records with repeated service/request IDs.
 
-## Capture a Python skill
+## Capture and upload
+
+Log in to the source app with its own skill first. Separately configure ObserveContext's URL/user and sign in with `oc.py login --google` or an ordinary password account. Its cached identity binds the local telemetry queue.
 
 ```sh
 python3 /skill/scripts/oc.py capture --url https://app.example.com \
-  --service app-client --output /private/client.jsonl \
+  --service app.client --upload \
   /other/skill/scripts/client.py query 'SELECT id FROM documents LIMIT 5'
 ```
 
-Use the original app's credentials and actual command names. Supply a Python script, not a shell command. Capture supports `urllib.request` within that process only. Requests to the exact supplied origin's SQL/schema, ordinary record APIs and batch endpoint are timed; auth requests are excluded. Set `--capture-sql` only when intended for the shared trace audience. The output contains no credentials, URL queries, REST bodies or response contents. Store it outside repositories; client output does not rotate automatically.
+The source needs buffer-capable PocketContext with `tracing.enabled: true` and `tracing.delivery: "buffer"`. The new buffer implementation is local and not yet in the published server pin. The wrapper requests tracing only for authenticated source calls, retrieves the owning user's trace with the source token held in memory, and uploads client/server measurements under one owned operation per wrapper invocation. No source server files or ObserveContext credentials on the source server are required.
 
-## Upload and watch
+Use `--capture-sql` only when the uploader and authorized broad viewers may read SQL literals. Server capture also requires its `captureSql` setting. Headers, tokens, URL queries, REST bodies and response values are excluded. Capture supports only Python `urllib.request` in-process. Authenticated redirects are refused rather than forwarding source credentials. Existing client output and command exit status are preserved if telemetry fails.
+
+## Retry pending telemetry
 
 ```sh
-python3 /skill/scripts/oc.py login --google
-python3 /skill/scripts/oc.py ingest /private/server.jsonl --follow
+python3 /skill/scripts/oc.py flush
 ```
 
-Run collection on a machine that can read the source spool. The collector reads active and `.1` files, polling once per second. It compares immutable existing content through SQL before REST writes. Restart after transient failures; unchanged records are skipped on replay. A conflicting ID or malformed line stops ingestion for review. Completed server traces may be lost on source queue overflow, missed rotations or crashes. Do not enable source tracing on ObserveContext itself; collecting its own ingestion would recurse.
+The private queue is account-bound and capped at 16 MiB. It contains completed envelopes and stable operation keys, never credentials. Flush authenticates the same ObserveContext identity and compares duplicate payloads; conflicting IDs stop replay. Other accounts' queues are not replayed. `--spool DIR` selects a custom queue base, and `--timeout` bounds retry work. Capture's final flush defaults to ten seconds. Missing source traces can reflect expiry, overflow, revocation or a request that did not opt in; retrieval cannot be retried indefinitely because source tokens are not persisted.
+
+## Legacy file import
+
+`capture --output /private/client.jsonl SOURCE_SCRIPT ...` retains the old client JSONL path without requesting buffer traces. `ingest /private/server.jsonl --follow` is available for explicitly authorized server file collection; it reads active and `.1` files. Missing operation links receive deterministic owner-scoped legacy import operations. Conflicting IDs or malformed lines stop collection; source rotation may lose data. This mode is optional and separate from normal `--upload`.
 
 ## Dashboard
 
-`python3 /skill/scripts/oc.py dashboard` prints a private loopback URL on port 8766. It shows recent requests, 24-hour latency/error summaries and individual span timings, refreshing every five seconds. Login happens in Python and no application token reaches the browser. Forward port 8766 over SSH if needed. Keep the URL private and stop the process with Ctrl-C. Dashboard data is completed-request telemetry after ingestion, not in-flight progress.
+`dashboard` prints a private loopback URL on port 8766 and keeps the application's token in Python. It polls every five seconds for completed uploaded operations, requests and phases. Forward port 8766 over SSH if needed. For a public URL, use only an authenticated proxy and the explicit `--public-origin` option; the option itself provides no authentication. Keep the local URL private and stop with Ctrl-C.
 
-`logout` removes only the local cache; it does not revoke server tokens. An operator disables the application account to revoke access. Google Workspace suspension alone does not revoke existing application sessions.
+`logout` removes only the local cache. An operator disables an application account to revoke access; Workspace suspension alone does not revoke existing sessions.

@@ -211,7 +211,12 @@ class Client:
 
 
 def write_record(client, user_id):
+    operation = json.loads(client.run('create', 'operations', json.dumps({
+        'source': 'container-smoke', 'client_key': secrets.token_hex(16),
+    })))
+    check(operation['owner'] == user_id, 'operation owner comes from authenticated user')
     payload = {
+        'operation': operation['id'],
         'version': 1, 'request_id': secrets.token_hex(16), 'correlation_id': 'synthetic-container',
         'service': 'container-smoke', 'method': 'POST', 'route': '/api/context/query',
         'started_at': '2026-09-27T12:00:00.000Z', 'duration_ms': 12.5, 'status': 200,
@@ -219,12 +224,15 @@ def write_record(client, user_id):
         'spans': [{'name': 'sql.execute', 'offset_ms': 1, 'duration_ms': 10}],
     }
     record = json.loads(client.run('create', 'traces', json.dumps(payload)))
-    return record['id'], None
+    return record['id'], operation['id']
 
 
-def check_records(client, trace, unused):
+def check_records(client, trace, operation):
     rows = client.sql(f"SELECT service, sql, status, duration_ms FROM traces WHERE id = '{trace}'")
     check(rows == [['container-smoke', 'SELECT 1', 200, 12.5]], 'synthetic trace survives persistence and restore')
+    owners = client.sql(f"SELECT o.id,o.owner FROM operations o JOIN traces t ON t.operation=o.id WHERE t.id='{trace}'")
+    check(len(owners) == 1 and owners[0][1] == client.user['id'] and
+          (operation is None or owners[0][0] == operation), 'owned operation relation survives persistence and restore')
     spans = client.sql(f"SELECT name, offset_ms, duration_ms FROM spans WHERE trace = '{trace}'")
     check(spans == [['sql.execute', 1, 10]], 'trace spans survive persistence and restore')
 

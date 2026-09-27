@@ -21,7 +21,9 @@ The public source target is `pocketcontext/observecontext`; the public image tar
 | `LITESTREAM_DISABLED` | Exactly `true` disables replication for isolated tests. |
 | `SMTP_ADDRESS`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `MAILER_FROM_ADDRESS` | Optional ONCE mail settings. |
 
-During authorized provisioning, store application credentials privately in sibling `once-pocketcontext/.envrc.private` under `COLORS_PAR_APP_OBSERVECONTEXT_*` names. Never commit them. Configure the separate Google client redirects `http://127.0.0.1:8765/callback` and `https://observe.pocketcontext.com/api/oauth2-redirect`. All admitted Workspace users share trace visibility; direct signup remains blocked. Use existing default `users`, including for ingesting agents.
+During authorized provisioning, store application credentials privately in sibling `once-pocketcontext/.envrc.private` under `COLORS_PAR_APP_OBSERVECONTEXT_*` names. Never commit them. Configure the separate Google client redirects `http://127.0.0.1:8765/callback` and `https://observe.pocketcontext.com/api/oauth2-redirect`. Each admitted Workspace user sees only their own operations, traces and spans. An operator may grant `users.can_view_all_traces` for read-all access; the flag never grants append access to another owner. Direct signup and user-managed privileges remain blocked. Use existing default `users`, including for ingesting agents.
+
+The source application retains a short-lived bounded trace buffer and needs no ObserveContext credentials. Its authenticated client retrieves its own traces and uploads using a separate ObserveContext login. There is no central collector. Run the personal dashboard on localhost against the remote API; no dashboard hostname or tunnel is required. Enable `tracing.delivery: "buffer"` separately in each source application after adopting and testing the server pin. Keep ObserveContext self-tracing disabled.
 
 ## Release checks
 

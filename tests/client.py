@@ -7,6 +7,7 @@ import io
 import json
 from pathlib import Path
 import stat
+import sqlite3
 import sys
 import tempfile
 import threading
@@ -137,7 +138,7 @@ class DashboardTests(unittest.TestCase):
     def test_http_boundaries_and_sql_only(self):
         calls=[]
         def query(cfg,sql):
-            self.assertTrue(sql.startswith('SELECT '));calls.append(sql)
+            self.assertTrue(sql.startswith(('SELECT ','WITH ')));calls.append(sql)
             self.assertNotIn('position',sql)
             return [{'id':'a'*15,'sql':'<script>untrusted</script>'}] if 'SELECT * FROM traces' in sql else []
         handler=dashboard.make_handler({'token':'SECRET'},'session',SimpleNamespace(query=query))
@@ -162,21 +163,102 @@ class DashboardTests(unittest.TestCase):
             self.assertEqual(len(calls),4)
             self.assertIn('ordinal',calls[-1])
 
+    def test_public_origin_is_exact_and_does_not_trust_forwarded_headers(self):
+        calls=[]
+        handler=dashboard.make_handler({},'session',SimpleNamespace(query=lambda cfg,sql:calls.append(sql) or []),
+                                       'https://observe-dev.example.com')
+        with serving(handler) as server:
+            def request(headers):
+                conn=http.client.HTTPConnection('127.0.0.1',server.server_port)
+                conn.putrequest('GET','/session/data',skip_host=True)
+                for name,value in headers:conn.putheader(name,value)
+                conn.endheaders();response=conn.getresponse();response.read();conn.close()
+                return response.status
+            host=('Host','observe-dev.example.com')
+            for headers in [
+                [host,('Origin','https://evil.example')],
+                [host,('Origin','http://observe-dev.example.com')],
+                [host,('Origin',f'http://127.0.0.1:{server.server_port}')],
+                [host,('Origin','null')], [host,host],
+                [host,('Origin','https://observe-dev.example.com'),('Origin','https://evil.example')],
+                [('Host','evil.example'),('X-Forwarded-Host','observe-dev.example.com'),
+                 ('Cf-Access-Authenticated-User-Email','fake@example.com')],
+            ]:self.assertEqual(request(headers),403)
+            self.assertEqual(calls,[])
+            self.assertEqual(request([host]),200)
+            self.assertEqual(request([host,('Origin','https://observe-dev.example.com')]),200)
+            self.assertEqual(request([('Host',f'127.0.0.1:{server.server_port}')]),200)
+            self.assertEqual(len(calls),6)
+
+    def test_operation_window_uses_owned_ids_and_keeps_older_peers(self):
+        with contextlib.closing(sqlite3.connect(':memory:')) as db:
+            db.row_factory=sqlite3.Row
+            # Snapshot query databases intentionally have no source indexes.
+            db.executescript('CREATE TABLE traces(id TEXT,operation TEXT,service TEXT,request_id TEXT,correlation_id TEXT,method TEXT,route TEXT,started_at TEXT,duration_ms REAL,status INTEGER); CREATE TABLE spans(trace TEXT,name TEXT);')
+            def insert(index,operation=None,correlation='',role=None,service='misleading-client'):
+                record=f'{index:015d}'
+                db.execute('INSERT INTO traces VALUES (?,?,?,?,?,?,?,?,?,?)',
+                           (record,operation or record,service,str(index),correlation,'GET','/api/context/schema',f'{index:06d}',1,200))
+                if role:db.execute('INSERT INTO spans VALUES (?,?)',(record,role))
+                return record
+            for index in range(1,51):insert(index)
+            client=insert(51,'paired','shared','http.client',service='arbitrary')
+            server=insert(0,'paired','shared','auth',service='arbitrary')
+            rows=[dict(row) for row in db.execute(dashboard.RECENT_SQL)]
+            ids={row['id'] for row in rows}
+            self.assertEqual(len(rows),51)
+            self.assertIn(server,ids);self.assertIn(client,ids)
+            self.assertNotIn(f'{1:015d}',ids)
+            self.assertEqual(len({row['operation_key'] for row in rows}),50)
+            by_id={row['id']:row for row in rows}
+            self.assertEqual(by_id[client]['kind'],'client')
+            self.assertEqual(by_id[server]['kind'],'server')
+            self.assertEqual(by_id[f'{50:015d}']['kind'],'unknown')
+            self.assertEqual(by_id[client]['operation_key'],by_id[server]['operation_key'])
+            # A different owner's operation remains distinct even with the same
+            # producer-supplied correlation ID and service label in an admin view.
+            other=insert(52,'another-owner','shared','auth',service='arbitrary')
+            rows={row['id']:dict(row) for row in db.execute(dashboard.RECENT_SQL)}
+            self.assertNotEqual(rows[other]['operation_key'],rows[client]['operation_key'])
+            for index in range(100,602):insert(index,'large','shared')
+            self.assertEqual(len(db.execute(dashboard.RECENT_SQL).fetchall()),500)
+
+    def test_recent_limit_is_reported(self):
+        for count in [499,500]:
+            query=lambda cfg,sql:[{'id':str(i)} for i in range(count)] if sql==dashboard.RECENT_SQL else []
+            handler=dashboard.make_handler({},'session',SimpleNamespace(query=query))
+            with serving(handler) as server:
+                conn=http.client.HTTPConnection('127.0.0.1',server.server_port)
+                conn.request('GET','/session/data');response=conn.getresponse()
+                self.assertEqual(response.status,200)
+                data=json.loads(response.read());conn.close()
+                self.assertEqual(data['recent_limited'],count==500)
+                self.assertEqual(len(data['recent']),count)
+                self.assertEqual(data['report'],[])
+
+    def test_public_origin_validation(self):
+        for origin in ['http://example.com','https://example.com/','https://user:pass@example.com',
+                       'https://example.com:443','https://example.com?x=1','https://example.com#x',
+                       'https://EXAMPLE.com','https://example.com\\evil','https://example.com\n']:
+            with self.assertRaises(ValueError):dashboard.public_origin(origin)
+        self.assertEqual(dashboard.public_origin('https://observe-dev.example.com'),'https://observe-dev.example.com')
+        self.assertIsNone(dashboard.public_origin(None))
+
 class ImportTests(unittest.TestCase):
     def event(self):
-        return dict(version=1,request_id='a'*32,service='test',method='POST',route='/api/context/query',started_at='2026-09-27T12:00:00.123999Z',duration_ms=1,status=200)
+        return dict(version=1,request_id='a'*32,operation='operation000001',service='test',method='POST',route='/api/context/query',started_at='2026-09-27T12:00:00.123999Z',duration_ms=1,status=200)
     def test_optional_defaults_and_timestamp_retry(self):
         event=self.event();stored=dict(event,started_at='2026-09-27 12:00:00.123Z',sql='',correlation_id='',user_id='',rows=0,truncated=0,spans='[]')
         self.assertEqual(oc.canonical(event),oc.canonical(stored))
         with patch.object(oc,'query',return_value=[stored]),patch.object(oc,'call') as call:
-            self.assertFalse(oc.ingest_one({},event));call.assert_not_called()
+            self.assertFalse(oc.ingest_one({'_owner_id':'owner0000000001'},event));call.assert_not_called()
         with patch.object(oc,'query',return_value=[dict(stored,duration_ms=2)]):
-            with self.assertRaises(oc.Fail) as error:oc.ingest_one({},event)
+            with self.assertRaises(oc.Fail) as error:oc.ingest_one({'_owner_id':'owner0000000001'},event)
             self.assertEqual(error.exception.code,4)
     def test_race_and_escaping(self):
         event=dict(self.event(),service="quote' OR 1=1 --")
         with patch.object(oc,'query',side_effect=[[],[event]]) as query,patch.object(oc,'call',return_value=(400,{})):
-            self.assertFalse(oc.ingest_one({},event))
+            self.assertFalse(oc.ingest_one({'_owner_id':'owner0000000001'},event))
             self.assertIn("service='quote'' OR 1=1 --'",query.call_args.args[1])
         with self.assertRaises(oc.Fail):oc.canonical(dict(event,started_at='2026-09-27T12:00:00'))
 

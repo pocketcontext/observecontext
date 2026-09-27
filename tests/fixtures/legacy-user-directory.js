@@ -11,13 +11,6 @@ function sync(e, deleting) {
         return;
       }
       const row = rows.length ? rows[0] : new Record(txApp.findCollectionByNameOrId("user_directory"));
-      // This locked mirror supplies snapshot policy without exposing auth rows.
-      const authorities=txApp.findRecordsByFilter('trace_authority','id = {:id}','',1,0,{id:e.record.id});
-      const authority=authorities.length?authorities[0]:new Record(txApp.findCollectionByNameOrId('trace_authority'));
-      authority.set('id',e.record.id);
-      authority.set('disabled',e.record.getBool('disabled'));
-      authority.set('can_view_all_traces',e.record.getBool('can_view_all_traces'));
-      txApp.save(authority);
       const name = e.record.getString("name");
       if (rows.length && row.getString("name") === name) return;
       row.set("id", e.record.id);

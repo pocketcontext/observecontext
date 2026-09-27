@@ -7,6 +7,7 @@
     ],
     "traces": [
       "id",
+      "operation",
       "version",
       "request_id",
       "correlation_id",
@@ -31,9 +32,36 @@
       "name",
       "offset_ms",
       "duration_ms"
+    ],
+    "operations": [
+      "id",
+      "owner",
+      "source",
+      "correlation_id",
+      "client_key",
+      "created"
     ]
   },
   "timeoutMs": 2000,
   "maxRows": 500,
-  "maxBytes": 1048576
+  "maxBytes": 1048576,
+  "snapshot": {
+    "filters": {
+      "operations": "owner = :requester OR EXISTS (SELECT 1 FROM trace_authority a WHERE a.id = :requester AND a.disabled = 0 AND a.can_view_all_traces = 1)",
+      "traces": "created_by = :requester OR EXISTS (SELECT 1 FROM trace_authority a WHERE a.id = :requester AND a.disabled = 0 AND a.can_view_all_traces = 1)",
+      "spans": "EXISTS (SELECT 1 FROM traces t WHERE t.id = spans.trace AND t.created_by = :requester) OR EXISTS (SELECT 1 FROM trace_authority a WHERE a.id = :requester AND a.disabled = 0 AND a.can_view_all_traces = 1)",
+      "user_directory": "id = :requester OR EXISTS (SELECT 1 FROM trace_authority a WHERE a.id = :requester AND a.disabled = 0 AND a.can_view_all_traces = 1)"
+    },
+    "policyTables": {
+      "trace_authority": [
+        "id",
+        "disabled",
+        "can_view_all_traces"
+      ]
+    },
+    "timeoutMs": 5000,
+    "maxRows": 100000,
+    "maxBytes": 16777216,
+    "maxConcurrent": 4
+  }
 }

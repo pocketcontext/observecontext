@@ -1,6 +1,35 @@
 {
   "tables": [
     {
+      "name": "operations",
+      "columns": [
+        {
+          "name": "client_key",
+          "type": "TEXT"
+        },
+        {
+          "name": "correlation_id",
+          "type": "TEXT"
+        },
+        {
+          "name": "created",
+          "type": "TEXT"
+        },
+        {
+          "name": "id",
+          "type": "TEXT"
+        },
+        {
+          "name": "owner",
+          "type": "TEXT"
+        },
+        {
+          "name": "source",
+          "type": "TEXT"
+        }
+      ]
+    },
+    {
       "name": "spans",
       "columns": [
         {
@@ -99,6 +128,10 @@
         {
           "name": "version",
           "type": "NUMERIC"
+        },
+        {
+          "name": "operation",
+          "type": "TEXT"
         }
       ]
     },
@@ -116,10 +149,16 @@
       ]
     }
   ],
-  "permissionModel": "shared",
+  "permissionModel": "filtered-snapshot",
   "limits": {
     "timeoutMs": 2000,
     "maxRows": 500,
     "maxBytes": 1048576
+  },
+  "snapshotLimits": {
+    "maxConcurrent": 4,
+    "timeoutMs": 5000,
+    "maxRows": 100000,
+    "maxBytes": 16777216
   }
 }
