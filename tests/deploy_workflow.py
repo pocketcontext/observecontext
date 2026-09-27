@@ -2,6 +2,10 @@
 """Exercise deployment orchestration without Docker, root, network or credentials."""
 import importlib.util
 import json
+import os
+import shlex
+import subprocess
+import tempfile
 from pathlib import Path
 import sys
 import unittest
@@ -106,6 +110,46 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(installer.rewrite_keys(result), result)
         with self.assertRaises(RuntimeError):
             installer.rewrite_keys(website)
+
+
+class EntrypointReadinessTests(unittest.TestCase):
+    def child(self, *, sync_failure=False, disabled=False):
+        with tempfile.TemporaryDirectory(prefix="observecontext-entrypoint-") as directory:
+            tmp = Path(directory)
+            log = tmp / "calls"
+            server = tmp / "server"
+            server.write_text("#!/bin/sh\nset -eu\ntest -z \"${LITESTREAM_ACCESS_KEY_ID:-}\"\ntest -z \"${LITESTREAM_SECRET_ACCESS_KEY:-}\"\ntest -z \"${OBSERVECONTEXT_SUPERUSER_PASSWORD:-}\"\nprintf 'server\\n' >> \"$OBSERVECONTEXT_TEST_LOG\"\n")
+            server.chmod(0o755)
+            sync = tmp / "litestream"
+            sync.write_text("#!/bin/sh\nset -eu\ntest \"$1\" = sync\ntest \"$2\" = -wait\nprintf 'sync\\n' >> \"$OBSERVECONTEXT_TEST_LOG\"\nexit \"$OBSERVECONTEXT_TEST_SYNC_EXIT\"\n")
+            sync.chmod(0o755)
+            script = tmp / "entrypoint.sh"
+            script.write_text((ROOT / "docker/entrypoint.sh").read_text().replace(
+                "SERVER=/usr/local/bin/pocketcontext", "SERVER=" + shlex.quote(str(server))))
+            env = {"PATH": str(tmp) + os.pathsep + os.environ["PATH"],
+                   "OBSERVECONTEXT_TEST_LOG": str(log), "OBSERVECONTEXT_TEST_SYNC_EXIT": "1" if sync_failure else "0",
+                   "LITESTREAM_ACCESS_KEY_ID": "synthetic", "LITESTREAM_SECRET_ACCESS_KEY": "synthetic",
+                   "OBSERVECONTEXT_SUPERUSER_PASSWORD": "synthetic", "BASE_URL": "https://observe.example.test"}
+            if disabled:
+                env["LITESTREAM_DISABLED"] = "true"
+            result = subprocess.run(["sh", str(script), "serve"], env=env, text=True, capture_output=True)
+            return result, log.read_text().splitlines() if log.exists() else []
+
+    def test_replica_sync_precedes_server_and_credentials_are_scrubbed(self):
+        result, calls = self.child()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(calls, ["sync", "server"])
+
+    def test_replica_sync_failure_refuses_to_serve(self):
+        result, calls = self.child(sync_failure=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(calls, ["sync"])
+        self.assertIn("refusing to serve", result.stderr)
+
+    def test_disabled_test_mode_skips_replica_sync(self):
+        result, calls = self.child(disabled=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(calls, ["server"])
 
 
 if __name__ == "__main__":

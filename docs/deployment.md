@@ -1,6 +1,6 @@
 # Container and release
 
-ObserveContext uses the server revision in `POCKETCONTEXT_VERSION`. Its image serves HTTP on port 80 with database-backed `GET /up` and persistent state under `/storage/pb_data`. Tini and Litestream forward termination and finish replication. A missing database restores before startup; inaccessible or corrupt replicas prevent startup. Trace and span records have no file attachments, so the database replica covers application records.
+ObserveContext uses the server revision in `POCKETCONTEXT_VERSION`. Its image serves HTTP on port 80 with database-backed `GET /up` and persistent state under `/storage/pb_data`. Tini and Litestream forward termination and finish replication. A missing database restores before startup; inaccessible or corrupt replicas prevent startup. Before accepting requests, the server child requires a successful synchronous database and replica sync through Litestream’s private local control socket. This initializes replication before a fast shutdown can occur. Trace and span records have no file attachments, so the database replica covers application records.
 
 The public source target is `pocketcontext/observecontext`; the public image target is `ghcr.io/pocketcontext/observecontext`. Publication does not deploy a live application. `observe.pocketcontext.com` is the prepared hostname and has not been provisioned by this release. Google OAuth, DNS, R2 and ONCE provisioning require separate authorization.
 

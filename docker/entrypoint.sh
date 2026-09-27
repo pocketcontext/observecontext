@@ -33,6 +33,15 @@ app_flags() {
 }
 
 serve() {
+	if [ "${LITESTREAM_DISABLED:-}" != true ]; then
+		# The daemon creates its control socket before launching this child. Force
+		# its first database sync before accepting traffic: an uninitialized
+		# Litestream database can otherwise skip final sync on a fast shutdown.
+		log "waiting for initial database and replica synchronization"
+		if ! litestream sync -wait -timeout 30 -socket /var/run/litestream.sock "$DB_PATH"; then
+			die "initial Litestream synchronization failed; refusing to serve"
+		fi
+	fi
 	# The server needs neither the replica credentials nor the superuser password.
 	# Litestream copies its credentials into AWS_* for its own use; drop those as well.
 	unset LITESTREAM_ACCESS_KEY_ID LITESTREAM_SECRET_ACCESS_KEY \
@@ -119,6 +128,14 @@ elif [ -n "${OBSERVECONTEXT_SUPERUSER_PASSWORD:-}" ]; then
 fi
 
 if [ "$replicate" = true ]; then
+	# A fresh instance without startup superuser credentials still needs a database
+	# for the child's synchronous replica readiness check. These are the same
+	# application migrations normally applied by serve.
+	if [ ! -f "$DB_PATH" ]; then
+		log "initializing application database before replication"
+		# shellcheck disable=SC2046
+		"$SERVER" migrate up $(app_flags) || die "database initialization failed"
+	fi
 	log "starting Litestream, which starts and supervises the server"
 	exec litestream replicate -config "$LITESTREAM_CONFIG_FILE" -exec "$SELF serve"
 fi

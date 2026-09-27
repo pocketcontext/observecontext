@@ -442,7 +442,9 @@ def restore(image, tmp, run_id):
     late, _ = write_record(client, user_id)
     stop(second)
     text = check_logs(second)
+    check('waiting for initial database and replica synchronization' in text, 'replica readiness is required before serving')
     check('litestream shut down' in text, 'Litestream received the signal and shut down after the server')
+    say('    container B replication and shutdown logs:\n' + text)
     destroy(second, second)
 
     step('container C: empty volume again; the late write must be there')
