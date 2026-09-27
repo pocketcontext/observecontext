@@ -450,18 +450,28 @@ def ingest_one(cfg, event):
 def ingest(cfg, path, follow=False, interval=1):
     path = Path(path).absolute()
     positions = {}
+    # Keep each cursor's inode alive until the cursor is discarded. Otherwise a
+    # fast rotation can reuse an unlinked inode for a new file of the same size,
+    # and its old offset would silently skip new records.
+    handles = {}
     count = duplicates = 0
-    while True:
-        for candidate in (Path(str(path) + '.1'), path):
-            try:
-                handle = candidate.open('rb')
-            except FileNotFoundError:
-                if candidate == path and not follow:
-                    raise Fail(2, f'trace file not found: {path}')
-                continue
-            with handle:
-                info = os.fstat(handle.fileno())
+    try:
+        while True:
+            for candidate in (Path(str(path) + '.1'), path):
+                try:
+                    opened = candidate.open('rb')
+                except FileNotFoundError:
+                    if candidate == path and not follow:
+                        raise Fail(2, f'trace file not found: {path}')
+                    continue
+                info = os.fstat(opened.fileno())
                 key = (info.st_dev, info.st_ino)
+                if key in handles:
+                    opened.close()
+                    handle = handles[key]
+                else:
+                    handle = opened
+                    handles[key] = handle
                 offset = positions.get(key, 0)
                 if info.st_size < offset:
                     offset = 0
@@ -484,18 +494,25 @@ def ingest(cfg, path, follow=False, interval=1):
                     count += int(inserted)
                     duplicates += int(not inserted)
                     positions[key] = handle.tell()
-        if not follow:
-            return {'inserted': count, 'duplicates': duplicates}
-        # Only keep positions for the active and rotated files, bounding memory.
-        active = set()
-        for candidate in (Path(str(path) + '.1'), path):
-            try:
-                info = candidate.stat()
-                active.add((info.st_dev, info.st_ino))
-            except FileNotFoundError:
-                pass
-        positions = {key: value for key, value in positions.items() if key in active}
-        time.sleep(interval)
+            if not follow:
+                return {'inserted': count, 'duplicates': duplicates}
+            # At rest, retain only the two files the producer keeps. Closing a
+            # removed inode and forgetting its cursor happen together.
+            active = set()
+            for candidate in (Path(str(path) + '.1'), path):
+                try:
+                    info = candidate.stat()
+                    active.add((info.st_dev, info.st_ino))
+                except FileNotFoundError:
+                    pass
+            for key in list(handles):
+                if key not in active:
+                    positions.pop(key, None)
+                    handles.pop(key).close()
+            time.sleep(interval)
+    finally:
+        for handle in handles.values():
+            handle.close()
 
 
 def run(args):

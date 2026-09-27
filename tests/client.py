@@ -190,7 +190,7 @@ class FollowTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/'traces';rotated=Path(str(path)+'.1')
             first=self.line(1);path.write_bytes(first[:30])
-            seen=[];stored={};polls=0
+            seen=[];stored={};polls=0;retained=[]
             def ingest(cfg,event):
                 key=event['request_id'];seen.append(key)
                 inserted=key not in stored;stored[key]=event
@@ -202,6 +202,10 @@ class FollowTests(unittest.TestCase):
                 while frame is not None and frame.f_code is not oc.ingest.__code__:frame=frame.f_back
                 self.assertIsNotNone(frame)
                 self.assertLessEqual(len(frame.f_locals['positions']),2)
+                tracked=list(frame.f_locals['handles'].values())
+                self.assertLessEqual(len(tracked),2)
+                self.assertTrue(all(not handle.closed for handle in tracked))
+                retained.extend(tracked)
                 polls+=1
                 if polls==1:
                     self.assertEqual(seen,[])
@@ -218,6 +222,7 @@ class FollowTests(unittest.TestCase):
             with patch.object(oc,'ingest_one',side_effect=ingest),patch.object(oc.time,'sleep',side_effect=tick):
                 with self.assertRaises(self.Stop):oc.ingest({},path,follow=True)
             self.assertEqual(seen,[self.event(n)['request_id'] for n in range(1,18)])
+            self.assertTrue(all(handle.closed for handle in retained))
             with patch.object(oc,'ingest_one',side_effect=ingest):summary=oc.ingest({},path)
             self.assertEqual(summary,{'inserted':0,'duplicates':2})
 
