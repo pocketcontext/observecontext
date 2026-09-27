@@ -1,0 +1,9 @@
+pb_data/
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.venv/
+bin/
+.DS_Store

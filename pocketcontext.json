@@ -1,0 +1,39 @@
+{
+  "authCollection": "users",
+  "tables": {
+    "user_directory": [
+      "id",
+      "name"
+    ],
+    "traces": [
+      "id",
+      "version",
+      "request_id",
+      "correlation_id",
+      "service",
+      "method",
+      "route",
+      "started_at",
+      "duration_ms",
+      "status",
+      "user_id",
+      "sql",
+      "rows",
+      "truncated",
+      "spans",
+      "created_by",
+      "created"
+    ],
+    "spans": [
+      "id",
+      "trace",
+      "ordinal",
+      "name",
+      "offset_ms",
+      "duration_ms"
+    ]
+  },
+  "timeoutMs": 2000,
+  "maxRows": 500,
+  "maxBytes": 1048576
+}

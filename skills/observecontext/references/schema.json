@@ -1,0 +1,125 @@
+{
+  "tables": [
+    {
+      "name": "spans",
+      "columns": [
+        {
+          "name": "duration_ms",
+          "type": "NUMERIC"
+        },
+        {
+          "name": "id",
+          "type": "TEXT"
+        },
+        {
+          "name": "name",
+          "type": "TEXT"
+        },
+        {
+          "name": "offset_ms",
+          "type": "NUMERIC"
+        },
+        {
+          "name": "ordinal",
+          "type": "NUMERIC"
+        },
+        {
+          "name": "trace",
+          "type": "TEXT"
+        }
+      ]
+    },
+    {
+      "name": "traces",
+      "columns": [
+        {
+          "name": "correlation_id",
+          "type": "TEXT"
+        },
+        {
+          "name": "created",
+          "type": "TEXT"
+        },
+        {
+          "name": "created_by",
+          "type": "TEXT"
+        },
+        {
+          "name": "duration_ms",
+          "type": "NUMERIC"
+        },
+        {
+          "name": "id",
+          "type": "TEXT"
+        },
+        {
+          "name": "method",
+          "type": "TEXT"
+        },
+        {
+          "name": "request_id",
+          "type": "TEXT"
+        },
+        {
+          "name": "route",
+          "type": "TEXT"
+        },
+        {
+          "name": "rows",
+          "type": "NUMERIC"
+        },
+        {
+          "name": "service",
+          "type": "TEXT"
+        },
+        {
+          "name": "spans",
+          "type": "JSON"
+        },
+        {
+          "name": "sql",
+          "type": "TEXT"
+        },
+        {
+          "name": "started_at",
+          "type": "TEXT"
+        },
+        {
+          "name": "status",
+          "type": "NUMERIC"
+        },
+        {
+          "name": "truncated",
+          "type": "BOOLEAN"
+        },
+        {
+          "name": "user_id",
+          "type": "TEXT"
+        },
+        {
+          "name": "version",
+          "type": "NUMERIC"
+        }
+      ]
+    },
+    {
+      "name": "user_directory",
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT"
+        },
+        {
+          "name": "name",
+          "type": "TEXT"
+        }
+      ]
+    }
+  ],
+  "permissionModel": "shared",
+  "limits": {
+    "timeoutMs": 2000,
+    "maxRows": 500,
+    "maxBytes": 1048576
+  }
+}
