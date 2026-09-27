@@ -7,3 +7,8 @@ __pycache__/
 .venv/
 bin/
 .DS_Store
+
+# Private diagnostic spools
+*.jsonl
+*.jsonl.1
+.envrc.private

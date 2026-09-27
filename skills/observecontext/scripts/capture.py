@@ -82,7 +82,7 @@ def run(args):
     script = Path(args.script).resolve(strict=True)
     output = Path(args.output).absolute()
     original = urllib.request.OpenerDirector.open
-    pending = []
+    pending = set()
     failed = False
 
     def traced(opener, fullurl, data=None, timeout=None):
@@ -95,7 +95,8 @@ def run(args):
                 return original(opener, fullurl, data)
             return original(opener, fullurl, data, timeout)
         correlation = uuid.uuid4().hex
-        request.add_header('X-Context-Correlation-Id', correlation)
+        request.remove_header('X-context-correlation-id')
+        request.add_unredirected_header('X-Context-Correlation-Id', correlation)
         event = dict(version=1, request_id=uuid.uuid4().hex, correlation_id=correlation,
                      service=args.service, method=request.get_method(), route=route,
                      started_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -115,6 +116,7 @@ def run(args):
             if done:
                 return
             done = True
+            pending.discard(finish)
             duration = (time.perf_counter() - start) * 1000
             event.update(duration_ms=duration, spans=[dict(name='http.client', offset_ms=0, duration_ms=duration)])
             try:
@@ -122,7 +124,7 @@ def run(args):
             except (OSError, ValueError):
                 failed = True
                 print('ObserveContext: could not write a client trace.', file=sys.stderr)
-        pending.append(finish)
+        pending.add(finish)
         try:
             result = original(opener, request, data) if timeout is None else original(opener, request, data, timeout)
             event['status'] = result.status
@@ -164,6 +166,6 @@ def run(args):
     finally:
         urllib.request.OpenerDirector.open = original
         sys.argv, sys.path[:] = old_argv, old_path
-        for finish in pending:
+        for finish in list(pending):
             finish()
     return exit_code or (1 if failed else 0)
