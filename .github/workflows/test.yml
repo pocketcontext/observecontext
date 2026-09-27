@@ -49,6 +49,12 @@ jobs:
         run: python3 observecontext/tests/realtime_access.py --binary pocketcontext/bin/pocketcontext
       - name: Test first-start deployment settings
         run: python3 observecontext/tests/deploy.py --binary pocketcontext/bin/pocketcontext
+      - name: Install hosted dashboard browser tooling
+        run: |
+          npm install --prefix /tmp/observe-browser --no-audit --no-fund playwright@1.63.0
+          /tmp/observe-browser/node_modules/.bin/playwright install --with-deps chromium
+      - name: Test hosted dashboard authentication, isolation and browser behavior
+        run: python3 observecontext/tests/dashboard_hosted.py --binary pocketcontext/bin/pocketcontext --browser-module /tmp/observe-browser/node_modules/playwright
       - name: Test installable skill
         run: python3 observecontext/tests/skill.py --binary pocketcontext/bin/pocketcontext
       - name: Test OAuth client

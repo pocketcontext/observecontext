@@ -28,7 +28,11 @@ python3 skills/observecontext/scripts/oc.py recent --pretty
 python3 skills/observecontext/scripts/oc.py dashboard
 ```
 
-The dashboard binds only to `127.0.0.1:8766`, keeps server tokens in Python, and prints a private local URL. It refreshes every five seconds with the latest 50 operations, grouping measurements by owned operation ID. Each operation shows both durations and shared details; missing or ambiguous measurements remain explicit. The expandable 24-hour summary counts raw trace measurements separately. Displayed timestamps use Europe/Berlin with daylight-saving adjustment. Over SSH, forward port 8766. For an operator-configured authenticated reverse proxy, see [protected development dashboard](docs/dashboard-tunnel.md); the explicit `--public-origin` option is not authentication. It shows completed requests after collection, not in-flight progress. SQL remains the flexible analysis interface:
+The hosted dashboard is served at the application's root URL, including `https://observe.pocketcontext.com/`. Sign in with your own Google Workspace identity. Each viewer sees their own operations unless an operator grants read-all access. The browser receives an opaque HttpOnly session cookie; API bearer tokens remain in bounded server memory. See [hosted dashboard](docs/hosted-dashboard.md) for authentication, deployment and session behavior.
+
+The optional `oc.py dashboard` remains personal and loopback-only at `127.0.0.1:8766`, with credentials in Python and a private printed URL. Forward port 8766 over SSH when using it remotely. The hosted dashboard requires neither that process nor port forwarding. Both show completed operations, paired client/server measurements and Europe/Berlin timestamps. For the legacy protected development proxy, see [dashboard tunnel](docs/dashboard-tunnel.md).
+
+SQL remains the flexible analysis interface:
 
 ```sh
 python3 skills/observecontext/scripts/oc.py query 'SELECT service,route,avg(duration_ms) AS avg_ms,max(duration_ms) AS max_ms FROM traces GROUP BY service,route ORDER BY max_ms DESC'
@@ -54,6 +58,7 @@ python3 tests/oauth.py
 python3 tests/client.py
 python3 tests/upload.py
 python3 tests/deploy_workflow.py
+python3 tests/dashboard_hosted.py --binary /absolute/path/to/pinned/pocketcontext
 ```
 
 With sibling application checkouts available, run the optional cross-application acceptance suite against their current configurations and actual portable clients:
@@ -66,7 +71,7 @@ python3 tests/app_clients.py --workspace .. --binary /absolute/path/to/pinned/po
 
 It checks wrapped SQL, explicit SQL disclosure, filtered-snapshot phases, TaskContext REST and batch writes, and MetaContext catalog/source pairing without source-row reads. This workspace suite is separate from standalone CI because it requires sibling repositories.
 
-Container configuration, persistence and populated restore tests gate publication. The public image targets AMD64 and ARM64; release archives include checksums and source/digest metadata. See [deployment](docs/deployment.md) for publication and future ONCE deployment requirements. No production service or cloud resources are provisioned by the local implementation.
+Container configuration, persistence and populated restore tests gate publication. The public image targets AMD64 and ARM64; release archives include checksums and source/digest metadata. See [deployment](docs/deployment.md) for publication and future ONCE deployment requirements. Production release evidence is recorded in the private ONCE deployment scaffold.
 
 ## Scope and limits
 

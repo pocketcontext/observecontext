@@ -36,6 +36,8 @@ The private queue is account-bound and capped at 16 MiB. It contains completed e
 
 ## Dashboard
 
-`dashboard` prints a private loopback URL on port 8766 and keeps the application's token in Python. It polls every five seconds for completed uploaded operations, requests and phases. Forward port 8766 over SSH if needed. For a public URL, use only an authenticated proxy and the explicit `--public-origin` option; the option itself provides no authentication. Keep the local URL private and stop with Ctrl-C.
+The hosted dashboard is available at your configured `OBSERVECONTEXT_URL`. Sign in there as your own Workspace Google user; the browser session is separate from CLI authentication. Ownership and operator-managed read-all access apply to each viewer independently. No local dashboard process or SSH forwarding is required.
+
+For the optional personal local view: `dashboard` prints a private loopback URL on port 8766 and keeps the application's token in Python. It polls every five seconds for completed uploaded operations, requests and phases. Forward port 8766 over SSH if needed. For a public URL, use only an authenticated proxy and the explicit `--public-origin` option; the option itself provides no authentication. Keep the local URL private and stop with Ctrl-C.
 
 `logout` removes only the local cache. An operator disables an application account to revoke access; Workspace suspension alone does not revoke existing sessions.

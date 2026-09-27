@@ -2,13 +2,15 @@
 
 ObserveContext uses the server revision in `POCKETCONTEXT_VERSION`. Its image serves HTTP on port 80 with database-backed `GET /up` and persistent state under `/storage/pb_data`. Tini and Litestream forward termination and finish replication. A missing database restores before startup; inaccessible or corrupt replicas prevent startup. Before accepting requests, the server child requires a successful synchronous database and replica sync through Litestream’s private local control socket. This initializes replication before a fast shutdown can occur. Trace and span records have no file attachments, so the database replica covers application records.
 
-The public source target is `pocketcontext/observecontext`; the public image target is `ghcr.io/pocketcontext/observecontext`. Publication does not deploy a live application. `observe.pocketcontext.com` is the prepared hostname and has not been provisioned by this release. Google OAuth, DNS, R2 and ONCE provisioning require separate authorization.
+The public source target is `pocketcontext/observecontext`; the public image target is `ghcr.io/pocketcontext/observecontext`. Production runs at `observe.pocketcontext.com` on the existing ONCE host. Image publication does not automatically deploy ObserveContext; use the existing safe wrapper after all release gates pass. New cloud provisioning remains a separate operator action.
 
 ## Configuration
 
 | Variable | Purpose |
 | --- | --- |
-| `BASE_URL` | Public HTTPS origin; also restricts browser origins. |
+| `BASE_URL` | Public HTTPS origin; also restricts browser origins and hosted dashboard callbacks. |
+| `OBSERVECONTEXT_DASHBOARD_INTERNAL_URL` | Optional strictly loopback API origin for dashboard queries; defaults to `http://127.0.0.1:80` in the container. Set to the bound loopback port for local development. |
+| `OBSERVECONTEXT_DASHBOARD_SESSION_TTL_SECONDS` | Optional hosted session lifetime, 1–28800 seconds; defaults to 3600. |
 | `OBSERVECONTEXT_SUPERUSER_EMAIL`, `OBSERVECONTEXT_SUPERUSER_PASSWORD` | Paired startup operator credentials; provision separately for this app. |
 | `OBSERVECONTEXT_GOOGLE_CLIENT_ID`, `OBSERVECONTEXT_GOOGLE_CLIENT_SECRET` | Paired credentials for a separate Google Web OAuth client. |
 | `OBSERVECONTEXT_GOOGLE_WORKSPACE_DOMAIN` | Exact verified Google Workspace domain; unset disables automatic account creation. |
@@ -23,7 +25,7 @@ The public source target is `pocketcontext/observecontext`; the public image tar
 
 During authorized provisioning, store application credentials privately in sibling `once-pocketcontext/.envrc.private` under `COLORS_PAR_APP_OBSERVECONTEXT_*` names. Never commit them. Configure the separate Google client redirects `http://127.0.0.1:8765/callback` and `https://observe.pocketcontext.com/api/oauth2-redirect`. Each admitted Workspace user sees only their own operations, traces and spans. An operator may grant `users.can_view_all_traces` for read-all access; the flag never grants append access to another owner. Direct signup and user-managed privileges remain blocked. Use existing default `users`, including for ingesting agents.
 
-The source application retains a short-lived bounded trace buffer and needs no ObserveContext credentials. Its authenticated client retrieves its own traces and uploads using a separate ObserveContext login. There is no central collector. Run the personal dashboard on localhost against the remote API; no dashboard hostname or tunnel is required. Enable `tracing.delivery: "buffer"` separately in each source application after adopting and testing the server pin. Keep ObserveContext self-tracing disabled.
+The source application retains a short-lived bounded trace buffer and needs no ObserveContext credentials. Its authenticated client retrieves its own traces and uploads using a separate ObserveContext login. There is no central collector. The authenticated hosted dashboard uses the existing application origin. The personal localhost dashboard remains optional; neither needs a separate hostname or tunnel. Enable `tracing.delivery: "buffer"` separately in each source application after adopting and testing the server pin. Keep ObserveContext self-tracing disabled.
 
 ## Release checks
 

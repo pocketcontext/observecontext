@@ -280,6 +280,18 @@ def smoke(image, tmp, run_id):
     base = wait_up(name)
     check(docker('exec', name, 'cat', '/proc/1/comm')[1].strip() == 'tini', 'PID 1 is tini')
 
+    step('hosted dashboard assets are packaged and private endpoints require a session')
+    dashboard_headers = {'Host': 'observe.example.test'}
+    status, reply, body = http('GET', base + '/', headers=dashboard_headers)
+    check(status == 200 and 'Continue with Google' in body, 'hosted sign-in page is served')
+    check("script-src 'self'" in reply.get('Content-Security-Policy', '') and
+          'unsafe-inline' not in reply.get('Content-Security-Policy', ''), 'hosted assets use strict CSP')
+    for asset in ['dashboard.js', 'dashboard.css']:
+        status, _, body = http('GET', base + '/dashboard/assets/' + asset, headers=dashboard_headers)
+        check(status == 200 and len(body) > 100, 'hosted ' + asset + ' is packaged')
+    status, reply, _ = http('GET', base + '/api/dashboard/data', headers=dashboard_headers)
+    check(status == 401, 'anonymous dashboard data is denied')
+
     step('settings taken from the environment, read with the superuser token')
     token = superuser_token(base, env['OBSERVECONTEXT_SUPERUSER_EMAIL'], env['OBSERVECONTEXT_SUPERUSER_PASSWORD'])
     status, _, settings = http('GET', base + '/api/settings', token=token)

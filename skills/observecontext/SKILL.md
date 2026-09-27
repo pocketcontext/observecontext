@@ -18,3 +18,7 @@ Use `capture --url SOURCE --service app.client --upload SOURCE_SCRIPT ...` for a
 Explain measured boundaries: client HTTP elapsed time includes response consumption; server durations and phases use separate clocks. SQL scanning includes SQLite work. Do not add overlapping spans or call client-minus-server time pure network latency. Truncated query results are incomplete. Missing traces may reflect missing opt-in headers, source buffer expiry/overflow or delayed delivery, not successful or failed operations.
 
 `dashboard` serves only on loopback and prints a private URL; server tokens stay in Python. An operator may allow one HTTPS origin with `--public-origin` only behind an authenticated proxy; this option does not authenticate viewers. Deployment and Workspace access changes are operator tasks outside ordinary trace analysis.
+
+## Hosted dashboard
+
+Open the configured ObserveContext server's root URL for the authenticated hosted dashboard. Each viewer signs in with their own Workspace Google identity and receives their own trace visibility. Hosted browser sessions and CLI authentication are separate. API bearer tokens stay on the server; the browser receives an opaque HttpOnly session cookie. No localhost process or SSH port forwarding is needed for the hosted dashboard. The `dashboard` command remains an optional personal loopback view.

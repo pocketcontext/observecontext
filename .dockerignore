@@ -7,3 +7,7 @@
 !pb_hooks/*.js
 !docker/entrypoint.sh
 !docker/litestream.yml
+
+!web/*.html
+!web/*.js
+!web/*.css

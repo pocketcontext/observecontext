@@ -4,6 +4,7 @@
 // First match wins among prefix labels, so "/api/context/" stays before "/api/". "/up" matches no rule.
 const RULES = [
   {label: "*:auth", audience: "", duration: 60, maxRequests: 10},
+  {label: "/api/dashboard/login", audience: "", duration: 60, maxRequests: 10},
   {label: "/api/batch", audience: "", duration: 10, maxRequests: 10},
   {label: "/api/context/", audience: "", duration: 10, maxRequests: 60},
   {label: "/api/", audience: "", duration: 10, maxRequests: 300},
