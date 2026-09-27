@@ -34,7 +34,7 @@ The dashboard binds only to `127.0.0.1:8766`, keeps server tokens in Python, and
 python3 skills/observecontext/scripts/oc.py query 'SELECT service,route,avg(duration_ms) AS avg_ms,max(duration_ms) AS max_ms FROM traces GROUP BY service,route ORDER BY max_ms DESC'
 ```
 
-See [instrumentation](docs/instrumentation.md) for client-requested source traces, account-bound local delivery, and optional legacy file collection. One wrapped invocation creates one owned operation grouping its client/server traces. Tracing is opt-in for each authenticated source request. Other apps must intentionally adopt the pinned server revision and enable the configuration before producing traces; this repository does not change or deploy their server pins.
+See [instrumentation](docs/instrumentation.md) for client-requested source traces, account-bound local delivery, and optional legacy file collection. One wrapped invocation creates one owned operation grouping its client/server traces. Scripts such as MetaContext ingestion can repeat `--origin CLIENT_SERVICE=HTTP_ORIGIN` to capture explicit catalog and source origins with separate labels and credentials; `--url` remains the single-origin shorthand. Tracing is opt-in for each authenticated source request. Other apps must intentionally adopt the pinned server revision and enable the configuration before producing traces; this repository does not change or deploy their server pins.
 
 ## Validation
 
@@ -55,6 +55,16 @@ python3 tests/client.py
 python3 tests/upload.py
 python3 tests/deploy_workflow.py
 ```
+
+With sibling application checkouts available, run the optional cross-application acceptance suite against their current configurations and actual portable clients:
+
+```sh
+python3 tests/app_clients.py --workspace .. --binary /absolute/path/to/pinned/pocketcontext
+# Limit to the two-origin metadata ingestion case:
+python3 tests/app_clients.py --workspace .. --binary /absolute/path/to/pinned/pocketcontext --apps metacontext
+```
+
+It checks wrapped SQL, explicit SQL disclosure, filtered-snapshot phases, TaskContext REST and batch writes, and MetaContext catalog/source pairing without source-row reads. This workspace suite is separate from standalone CI because it requires sibling repositories.
 
 Container configuration, persistence and populated restore tests gate publication. The public image targets AMD64 and ARM64; release archives include checksums and source/digest metadata. See [deployment](docs/deployment.md) for publication and future ONCE deployment requirements. No production service or cloud resources are provisioned by the local implementation.
 

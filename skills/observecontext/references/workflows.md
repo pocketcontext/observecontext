@@ -16,9 +16,11 @@ python3 /skill/scripts/oc.py capture --url https://app.example.com \
   /other/skill/scripts/client.py query 'SELECT id FROM documents LIMIT 5'
 ```
 
-The source needs buffer-capable PocketContext with `tracing.enabled: true` and `tracing.delivery: "buffer"`. The new buffer implementation is local and not yet in the published server pin. The wrapper requests tracing only for authenticated source calls, retrieves the owning user's trace with the source token held in memory, and uploads client/server measurements under one owned operation per wrapper invocation. No source server files or ObserveContext credentials on the source server are required.
+The source needs buffer-capable PocketContext with `tracing.enabled: true` and `tracing.delivery: "buffer"`. The wrapper requests tracing only for authenticated source calls, retrieves the owning user's trace with the source token held in memory, and uploads client/server measurements under one owned operation per wrapper invocation. No source server files or ObserveContext credentials on the source server are required.
 
 Use `--capture-sql` only when the uploader and authorized broad viewers may read SQL literals. Server capture also requires its `captureSql` setting. Headers, tokens, URL queries, REST bodies and response values are excluded. Capture supports only Python `urllib.request` in-process. Authenticated redirects are refused rather than forwarding source credentials. Existing client output and command exit status are preserved if telemetry fails.
+
+For metadata ingestion or another multi-origin script, use `--service metacontext.ingestion --origin metacontext.client=https://catalog.example.com --origin source.metadata=https://source.example.com --upload`. All measurements share one operation, with separate client service labels and origin-bound source credentials. Only the explicitly mapped API origins are traced; the ObserveContext destination is rejected.
 
 ## Retry pending telemetry
 

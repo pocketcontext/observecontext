@@ -4,7 +4,7 @@ The normal path is an authenticated skill request, an owner-scoped trace in the 
 
 ## Source server
 
-The buffer mode requires the newer local PocketContext implementation; the last published server pin does not include it yet. Coordinate and test each source application's adoption before release. Add this top-level member to its `pocketcontext.json` and restart:
+The buffer mode is available in the published PocketContext revision recorded in `POCKETCONTEXT_VERSION`. Coordinate and test each source application’s adoption before enabling it. Add this top-level member to its `pocketcontext.json` and restart:
 
 ```json
 "tracing": {
@@ -42,6 +42,19 @@ Add `--capture-sql` only when SQL literals may be retained. Headers, tokens, URL
 One wrapper invocation creates one ObserveContext operation. All its client and server traces link to that API-assigned operation ID. Each HTTP pair also has a fresh correlation ID for timing comparison, but correlation strings are never access-control keys. The authenticated ObserveContext uploader owns the operation and traces; source user IDs and service labels are reported metadata. Ordinary users see their own uploads. An operator-managed `can_view_all_traces` flag permits broader reads without permission to append to another user's operation.
 
 Client duration covers HTTP through response consumption. Source retrieval and ObserveContext delivery are excluded. Client and server use different clocks; client-minus-server is not pure network latency.
+
+## Scripts using multiple source origins
+
+List every permitted origin explicitly, with a distinct client service label. `--service` labels the shared operation; `--origin` supplies per-origin client labels. MetaContext can then trace catalog SQL/REST and source schema requests within the same invocation:
+
+```sh
+python3 /skill/scripts/oc.py capture --service metacontext.ingestion --upload \
+  --origin "metacontext.client=$METACONTEXT_URL" \
+  --origin "source.metadata=https://source.example.com" \
+  /metacontext/ingestion/sync.py --database DATABASE_ID
+```
+
+Mappings accept HTTP(S) origins only, with no credentials, path, query or fragment. Duplicate origins (including equivalent default ports) and duplicate client labels are rejected. The ObserveContext upload origin cannot be a capture source. Unlisted origins receive no opt-in headers or client traces. Trace retrieval stays on the corresponding origin with the same request's authentication; credentials observed on one source origin cannot be reused by the wrapper on another, even when both are allowlisted. This covers HTTP API requests only; it adds no browser, file or realtime instrumentation. Existing `--url ORIGIN --service LABEL` remains the single-origin shorthand.
 
 ## Pending delivery
 

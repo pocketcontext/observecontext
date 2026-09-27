@@ -72,13 +72,51 @@ class Response:
         self.close()
 
 
-def run(args):
-    target = urllib.parse.urlsplit(args.url)
-    if (target.scheme not in ('http', 'https') or not target.hostname or target.username
-            or target.password or target.query or target.fragment or target.path not in ('', '/')):
-        raise ValueError('--url must be an HTTP(S) origin without credentials or a path')
+def origin_key(url):
+    parsed = urllib.parse.urlsplit(url)
+    if (parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username
+            or parsed.password or parsed.query or parsed.fragment or parsed.path not in ('', '/')):
+        raise ValueError('capture origins must be HTTP(S) origins without credentials or paths')
+    try:
+        return parsed.scheme, parsed.hostname.casefold(), (parsed.port if parsed.port is not None else (443 if parsed.scheme == 'https' else 80))
+    except ValueError:
+        raise ValueError('capture origin has an invalid port') from None
+
+
+def request_origin(url):
+    parsed = urllib.parse.urlsplit(url)
+    return parsed.scheme, (parsed.hostname or '').casefold(), (parsed.port if parsed.port is not None else (443 if parsed.scheme == 'https' else 80))
+
+
+def capture_origins(args):
     if not re.fullmatch(r'[a-zA-Z0-9._-]{1,100}', args.service):
         raise ValueError('--service must be 1–100 letters, digits, dots, underscores or hyphens')
+    entries = []
+    if getattr(args, 'url', None):
+        entries.append((args.service, args.url))
+    for mapping in getattr(args, 'origin', None) or []:
+        label, separator, url = mapping.partition('=')
+        if not separator or not re.fullmatch(r'[a-zA-Z0-9._-]{1,100}', label):
+            raise ValueError('--origin must be CLIENT_SERVICE=HTTP_ORIGIN')
+        entries.append((label, url))
+    if not entries:
+        raise ValueError('capture requires --url or at least one --origin CLIENT_SERVICE=HTTP_ORIGIN')
+    targets = {}
+    services = set()
+    for label, url in entries:
+        key = origin_key(url)
+        if key in targets or label in services:
+            raise ValueError('capture origins and their client service labels must be distinct')
+        targets[key] = (label, url.rstrip('/'))
+        services.add(label)
+    destination = os.environ.get('OBSERVECONTEXT_URL')
+    if getattr(args, 'upload', False) and destination and request_origin(destination) in targets:
+        raise ValueError('ObserveContext upload origin cannot also be a captured source')
+    return targets
+
+
+def run(args):
+    targets = capture_origins(args)
     script = Path(args.script).resolve(strict=True)
     output = Path(args.output).absolute() if getattr(args, 'output', None) else None
     upload = getattr(args, 'upload', False)
@@ -95,23 +133,22 @@ def run(args):
         raise ValueError('--output is required without --upload')
     original = urllib.request.OpenerDirector.open
     pending = set()
-    source_tokens = set()
+    source_tokens = {}
     original_redirect = urllib.request.HTTPRedirectHandler.redirect_request
 
     def redirect(handler, req, fp, code, msg, headers, newurl):
-        parsed = urllib.parse.urlsplit(req.full_url)
-        if (parsed.scheme, parsed.netloc) == (target.scheme, target.netloc) and req.get_header('Authorization'):
+        if request_origin(req.full_url) in targets and req.get_header('Authorization'):
             return None  # Never forward a traced source credential through a redirect.
         return original_redirect(handler, req, fp, code, msg, headers, newurl)
 
-    def retrieve(request_id, token):
+    def retrieve(source_url, request_id, token):
         if not re.fullmatch('[0-9a-f]{32}', request_id or '') or not token:
             return None
         deadline = time.monotonic() + 1.5
         no_redirect = urllib.request.build_opener(type('TraceNoRedirect', (urllib.request.HTTPRedirectHandler,),
                                                      {'redirect_request': lambda *unused: None}))
         import oc
-        request = urllib.request.Request(args.url.rstrip('/') + '/api/context/traces/' + request_id,
+        request = urllib.request.Request(source_url + '/api/context/traces/' + request_id,
                                          headers={'User-Agent': oc.USER_AGENT})
         request.add_unredirected_header('Authorization', token)
         while True:
@@ -139,18 +176,19 @@ def run(args):
         nonlocal failed
         request = fullurl if isinstance(fullurl, urllib.request.Request) else urllib.request.Request(fullurl, data=data)
         parsed = urllib.parse.urlsplit(request.full_url)
-        same_origin = (parsed.scheme, parsed.netloc) == (target.scheme, target.netloc)
+        key = request_origin(request.full_url)
+        source = targets.get(key)
         authorization = request.get_header('Authorization')
-        if upload and not same_origin and authorization and authorization in source_tokens:
+        if upload and authorization in source_tokens and source_tokens[authorization] != key:
             raise urllib.error.URLError('refusing to forward a source credential to another origin')
-        route = route_for(parsed.path) if same_origin else None
+        route = route_for(parsed.path) if source else None
         if not route:
             if timeout is None:
                 return original(opener, fullurl, data)
             return original(opener, fullurl, data, timeout)
         source_token = request.get_header('Authorization')
         if upload and source_token:
-            source_tokens.add(source_token)
+            source_tokens[source_token] = key
             request.remove_header('X-context-trace')
             request.add_unredirected_header('X-Context-Trace', '1')
             request.remove_header('X-context-capture-sql')
@@ -160,7 +198,7 @@ def run(args):
         request.remove_header('X-context-correlation-id')
         request.add_unredirected_header('X-Context-Correlation-Id', correlation)
         event = dict(version=1, request_id=uuid.uuid4().hex, correlation_id=correlation,
-                     service=args.service, method=request.get_method(), route=route,
+                     service=source[0], method=request.get_method(), route=route,
                      started_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
                      user_id='', rows=0, truncated=False, status=0, sql='')
         if args.capture_sql and route == '/api/context/query':
@@ -191,7 +229,7 @@ def run(args):
             events = [event]
             if upload and source_token and server_request_id:
                 try:
-                    server_event = retrieve(server_request_id, source_token)
+                    server_event = retrieve(source[1], server_request_id, source_token)
                     if server_event:
                         events.append(server_event)
                 except Exception:

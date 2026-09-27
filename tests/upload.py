@@ -173,4 +173,50 @@ class CaptureUploadTests(unittest.TestCase):
                     self.assertEqual(capture.run(args),0)
                 self.assertEqual(leaked,[])
 
+
+class MultiOriginTests(unittest.TestCase):
+    def test_two_origins_share_operation_with_separate_labels_and_credentials(self):
+        seen=[];queued=[]
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self,*args):pass
+            def do_GET(self):
+                seen.append((self.server.server_port,self.path,dict(self.headers)))
+                payload=event('a' if self.server.label=='catalog' else 'b')
+                payload['service']=self.server.label+'.server'
+                body=json.dumps(payload).encode() if self.path.startswith('/api/context/traces/') else b'{}'
+                self.send_response(200);self.send_header('X-Context-Request-Id',payload['request_id'])
+                self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
+        class Queue:
+            def __init__(self,*a,**kw):pass
+            def enqueue(self,key,source,events):queued.append((key,source,events))
+            def flush(self,**kw):return len(queued)
+        with tempfile.TemporaryDirectory() as tmp,serving(Handler) as catalog,serving(Handler) as source:
+            catalog.label='catalog';source.label='source'
+            catalog_url=f'http://127.0.0.1:{catalog.server_port}';source_url=f'http://127.0.0.1:{source.server_port}'
+            script=Path(tmp)/'meta.py'
+            script.write_text("import urllib.request,urllib.error\nfor url,token in "+repr([(catalog_url,'CATALOG_SECRET'),(source_url,'SOURCE_SECRET')])+":\n request=urllib.request.Request(url+'/api/context/schema',headers={'Authorization':token})\n with urllib.request.urlopen(request) as response:response.read()\ntry:urllib.request.urlopen(urllib.request.Request("+repr(source_url+'/api/context/schema')+",headers={'Authorization':'CATALOG_SECRET'}))\nexcept urllib.error.URLError:pass\n")
+            args=SimpleNamespace(url=None,origin=['meta.client='+catalog_url,'source.client='+source_url],service='meta.ingest',script=str(script),output=None,capture_sql=False,arguments=[],upload=True)
+            with patch.dict(os.environ,{'OBSERVECONTEXT_URL':'http://127.0.0.1:9'}),patch.object(oc,'config',return_value={}),patch.object(uploader,'Delivery',Queue),contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(capture.run(args),0)
+            self.assertEqual(len(queued),2)
+            self.assertEqual(queued[0][0],queued[1][0]);self.assertEqual({item[1] for item in queued},{'meta.ingest'})
+            self.assertEqual([item[2][0]['service'] for item in queued],['meta.client','source.client'])
+            self.assertEqual([item[2][1]['service'] for item in queued],['catalog.server','source.server'])
+            self.assertEqual(len(seen),4)
+            for port,path,headers in seen:
+                self.assertEqual(headers['Authorization'],'CATALOG_SECRET' if port==catalog.server_port else 'SOURCE_SECRET')
+                if '/traces/' in path:self.assertNotIn('X-Context-Trace',headers)
+            self.assertNotIn('SECRET',json.dumps(queued))
+
+    def test_explicit_mapping_validation_and_observe_exclusion(self):
+        with patch.dict(os.environ,{'OBSERVECONTEXT_URL':'https://observe.example.test'}):
+            invalid=[['client=https://observe.example.test'],['one=https://app.test','two=https://APP.test:443/'],
+                     ['one=https://app.test','one=https://other.test'],['one=https://user:secret@app.test'],
+                     ['one=https://app.test/path'],['one=https://app.test?query=secret'],['malformed']]
+            for origins in invalid:
+                with self.subTest(origins=origins),self.assertRaises(ValueError):
+                    capture.capture_origins(SimpleNamespace(service='meta.ingest',origin=origins,url=None,upload=True))
+            result=capture.capture_origins(SimpleNamespace(service='app.client',url='https://APP.test/',upload=True))
+            self.assertEqual(result,{('https','app.test',443):('app.client','https://APP.test')})
+
 if __name__=='__main__':unittest.main()
