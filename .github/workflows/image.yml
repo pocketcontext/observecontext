@@ -213,7 +213,9 @@ jobs:
             --notes-file "$RUNNER_TEMP/release-notes.md"
 
   deploy:
-    if: vars.COLORS_PROFILE != ''
+    # Publication is authorized; live deployment is not. Enable only after explicit
+    # deployment authorization and safe wrapper installation, regardless of org variables.
+    if: ${{ false && vars.COLORS_PROFILE != '' }}
     needs:
       - public-release
     runs-on: ubuntu-24.04

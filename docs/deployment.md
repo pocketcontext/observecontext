@@ -41,7 +41,7 @@ Each successful main release also publishes public Linux AMD64 and ARM64 contain
 
 ## Prepared deployment
 
-Keep `COLORS_PROFILE` unset until a live service and safe update wrapper have been authorized, installed and verified. The optional deployment job requires an environment with `SSH_PRIVATE_KEY` and variables `SERVER_IP`, `SERVER_USER`, `SSH_KNOWN_HOSTS`; use a dedicated key and trusted pinned host identity.
+The prepared deployment job is hard-disabled with `if: ${{ false && vars.COLORS_PROFILE != '' }}`; repository or organization variables cannot enable live deployment. Change this condition only after explicit deployment authorization and safe wrapper installation and verification. Keep `COLORS_PROFILE` unset until then. The optional deployment job requires an environment with `SSH_PRIVATE_KEY` and variables `SERVER_IP`, `SERVER_USER`, `SSH_KNOWN_HOSTS`; use a dedicated key and trusted pinned host identity.
 
 ONCE automatic updates must remain disabled. `deploy/deploy-observecontext.py` locks this app, validates exactly one matching container and image, pulls, gracefully stops its writer, requires clean exit, and updates only `observe.pocketcontext.com`. It accepts no arguments. Recovery starts the old container only if it is still the sole matching container. Environment updates must follow the same lock and stop discipline. Updates briefly interrupt availability.
 
