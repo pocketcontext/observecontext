@@ -5,6 +5,45 @@ function timestamp(value){const date=value instanceof Date?value:new Date(String
 function node(tag,text,cls=''){const el=document.createElement(tag);if(text!==undefined)el.textContent=text;el.className=cls;return el}
 function cell(row,value,cls=''){const td=node('td',value,cls);row.append(td);return td}
 function failure(t){return t.status===0||t.status>=400}
+function svgNode(tag,attributes={},text){
+ const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
+ for(const [name,value] of Object.entries(attributes))el.setAttribute(name,String(value));
+ if(text!==undefined)el.textContent=text;
+ return el;
+}
+function renderTimeline(trace,spans){
+ const finite=n=>Number.isFinite(Number(n))?Math.max(0,Number(n)):0;
+ const total=finite(trace.duration_ms),scale=total||1;
+ const timeline=node('div',undefined,'timeline');
+ const axisRow=node('div',undefined,'timeline-row timeline-axis');
+ const axis=svgNode('svg',{width:'100%',height:32,'aria-hidden':'true',focusable:'false'});
+ // Keep full millisecond labels legible for long requests on narrow screens.
+ const ticks=total>=10000?[0,1]:total>=100?[0,.5,1]:total?[0,.25,.5,.75,1]:[0];
+ for(const fraction of ticks){
+  const x=(fraction*100)+'%';
+  axis.append(svgNode('line',{x1:x,x2:x,y1:24,y2:32,class:'timeline-tick'}));
+  axis.append(svgNode('text',{x,y:15,'text-anchor':fraction===0?'start':fraction===1?'end':'middle'},ms(total*fraction)));
+ }
+ axisRow.append(node('span','Phase / start offset'),axis,node('span','Duration','number'));
+ timeline.append(axisRow);
+ for(const span of spans){
+  // Producers allow a small rounding tolerance. Keep drawings within the trace
+  // while retaining reported timing values in the visible and accessible labels.
+  const start=Math.min(finite(span.offset_ms),total);
+  const end=Math.min(total,start+finite(span.duration_ms));
+  const x=start/scale*100,width=(end-start)/scale*100;
+  const description=span.name+'; starts at '+ms(span.offset_ms)+'; duration '+ms(span.duration_ms)+'; trace duration '+ms(total);
+  const chart=svgNode('svg',{width:'100%',height:24,role:'img','aria-label':description,focusable:'false',class:'timeline-chart'});
+  chart.append(svgNode('title',{},description));
+  chart.append(svgNode('rect',{x:0,y:3,width:'100%',height:18,rx:3,class:'timeline-track'}));
+  for(const fraction of ticks)chart.append(svgNode('line',{x1:(fraction*100)+'%',x2:(fraction*100)+'%',y1:0,y2:24,class:'timeline-grid'}));
+  if(width>0)chart.append(svgNode('rect',{x:x+'%',y:5,width:width+'%',height:14,rx:2,class:'timeline-bar'}));
+  else chart.append(svgNode('line',{x1:x+'%',x2:x+'%',y1:4,y2:20,class:'timeline-marker'}));
+  const label=node('span',span.name,'timeline-label');label.append(node('span','+'+ms(span.offset_ms),'subline'));
+  const row=node('div',undefined,'timeline-row');row.append(label,chart,node('span',ms(span.duration_ms),'number timeline-duration'));timeline.append(row);
+ }
+ return timeline;
+}
 function role(t){return ['client','server'].includes(t.kind)?t.kind:'unknown'}
 function groupOperations(traces){
  const groups=new Map();
@@ -76,8 +115,7 @@ async function showDetail(op,focus=false){
    article.append(node('h3',(kind==='client'?'Client':kind==='server'?'Server':'Unclassified')+' · '+t.service+' · '+ms(t.duration_ms)));
    article.append(node('p',t.method+' '+t.route+' · '+(t.status===0?'Transport error':'HTTP '+t.status),'muted'));
    if(sql.length>1&&t.sql)article.append(node('pre',t.sql));
-   if(d.spans.length){article.append(node('p',kind==='server'?'Server phases, relative to server duration. Phases may overlap.':'Measured phases, relative to this trace duration.','muted'));
-    for(const s of d.spans){const row=node('div',undefined,'span');const meter=node('meter');meter.min=0;meter.max=Math.max(Number(t.duration_ms),.001);meter.value=Number(s.duration_ms);meter.setAttribute('aria-label',s.name+' duration '+ms(s.duration_ms)+'; starts at '+ms(s.offset_ms));meter.title='Starts at '+ms(s.offset_ms);row.append(node('span',s.name+' (+'+ms(s.offset_ms)+')'),meter,node('span',ms(s.duration_ms),'number'));article.append(row)}
+   if(d.spans.length){article.append(node('p',(kind==='server'?'Server timeline':'Trace timeline')+' · milliseconds from the start of this measurement. Phases may overlap; gaps are unmeasured time. Zero-duration phases appear as vertical markers.','muted'),renderTimeline(t,d.spans));
    }else article.append(node('p','No phase breakdown recorded.','muted'));
    const raw=node('details');raw.append(node('summary','Trace identity'),node('pre','Request ID: '+t.request_id+'\nStarted: '+timestamp(t.started_at)));article.append(raw);$('measurements').append(article);
   });

@@ -27,10 +27,73 @@ const { chromium } = require(process.argv[2]);
     if (!(await page.locator('#identity').textContent()).includes('14:00:00.000')) throw Error('Berlin timezone missing');
     if (!(await page.locator('#measurements').textContent()).includes('sql.execute')) throw Error('Phase missing');
     if (!(await page.locator('#detail').evaluate(node => node === document.activeElement))) throw Error('Inspect did not focus detail');
+    // Check actual rendered geometry, not only SVG attributes: phases share one
+    // trace-relative scale, including overlap, gaps and a zero-duration endpoint.
+    async function checkTimeline() {
+      const result = await page.locator('.timeline').first().evaluate(timeline => {
+        const charts = [...timeline.querySelectorAll('.timeline-chart')];
+        return {
+          ticks: [...timeline.querySelectorAll('.timeline-axis text')].map(node => node.textContent),
+          rows: charts.map(chart => {
+            const frame = chart.getBoundingClientRect();
+            const bar = chart.querySelector('.timeline-bar, .timeline-marker');
+            const box = bar.getBoundingClientRect();
+            return {x: (box.x - frame.x) / frame.width, width: box.width / frame.width,
+                    label: chart.getAttribute('aria-label'), left: frame.left, right: frame.right};
+          })
+        };
+      });
+      if (JSON.stringify(result.ticks) !== JSON.stringify(['0.00 ms', '5.00 ms', '10.00 ms', '15.00 ms', '20.00 ms'])) throw Error('Trace axis scale incorrect');
+      const expected = [[0, .4], [.2, .5], [.6, .15], [1, 0]];
+      if (result.rows.length !== expected.length) throw Error('Missing timeline phases');
+      result.rows.forEach((row, index) => {
+        if (Math.abs(row.x - expected[index][0]) > .005 || Math.abs(row.width - expected[index][1]) > .005) throw Error('Incorrect phase geometry: ' + JSON.stringify(row));
+        if (Math.abs(row.left - result.rows[0].left) > 1 || Math.abs(row.right - result.rows[0].right) > 1) throw Error('Phase scales are not aligned');
+        if (!row.label.includes('starts at ') || !row.label.includes('duration ')) throw Error('Accessible timing missing');
+      });
+    }
     for (const width of [390, 768, 1440]) {
       await page.setViewportSize({width, height: 900});
       if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw Error('Page overflow at ' + width);
+      await checkTimeline();
+      if (process.env.OBSERVECONTEXT_TEST_SCREENSHOTS && width !== 768) await page.screenshot({path: process.env.OBSERVECONTEXT_TEST_SCREENSHOTS + '/timeline-' + width + '.png', fullPage: true});
     }
+    // Even the maximum accepted trace duration must fit the narrow mobile axis.
+    await page.route('**/api/dashboard/trace?*', async route => {
+      const response = await route.fetch();
+      const body = await response.json();
+      body.trace.duration_ms = 86400000;
+      body.spans = [{name: 'long', offset_ms: 43200000, duration_ms: 21600000}];
+      await route.fulfill({response, json: body});
+    });
+    await page.setViewportSize({width: 320, height: 900});
+    await page.getByRole('button', {name: /^Inspect /}).first().click();
+    await page.locator('.timeline-chart[aria-label^="long;"]').waitFor();
+    const labelsFit = await page.locator('.timeline-axis svg').evaluate(axis => {
+      const labels = [...axis.querySelectorAll('text')].map(node => node.getBoundingClientRect());
+      const box = axis.getBoundingClientRect();
+      return labels.length === 2 && labels[0].right < labels[1].left && labels[0].left >= box.left - 1 && labels[1].right <= box.right + 1;
+    });
+    if (!labelsFit) throw Error('Long-duration mobile axis labels overlap or overflow');
+    if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw Error('Long-duration mobile page overflow');
+    await page.unroute('**/api/dashboard/trace?*');
+    await page.setViewportSize({width: 1440, height: 900});
+    // A zero-duration trace must still render a finite origin marker.
+    await page.route('**/api/dashboard/trace?*', async route => {
+      const response = await route.fetch();
+      const body = await response.json();
+      body.trace.duration_ms = 0;
+      body.spans = [{name: 'instant', offset_ms: 0, duration_ms: 0}];
+      await route.fulfill({response, json: body});
+    });
+    await page.getByRole('button', {name: /^Inspect /}).first().click();
+    await page.locator('.timeline-chart[aria-label^="instant;"]').waitFor();
+    const instant = page.locator('.timeline-marker');
+    if (await instant.getAttribute('x1') !== '0%' || await instant.getAttribute('x2') !== '0%') throw Error('Zero-duration timeline has invalid origin');
+    if ((await page.locator('.timeline-axis text').allTextContents()).join() !== '0.00 ms') throw Error('Zero-duration timeline axis incorrect');
+    await page.unroute('**/api/dashboard/trace?*');
+    await page.getByRole('button', {name: /^Inspect /}).first().click();
+    await page.locator('.timeline-chart[aria-label^="sql.execute;"]').waitFor();
     await page.locator('#refresh').focus();
     await page.keyboard.press('Enter');
     await page.locator('#refresh').waitFor({state: 'visible'});
@@ -71,7 +134,7 @@ const { chromium } = require(process.argv[2]);
     if ((await page.locator('#sql').textContent()) || (await page.locator('#recent').textContent())) throw Error('Private data retained after session ended');
     if (!(await page.locator('#dashboard').isHidden())) throw Error('Private dashboard visible after logout');
     if (errors.length) throw Error(errors.join('\n'));
-    console.log('PASS hosted dashboard browser: literal SQL, Berlin time, mobile, keyboard, no token storage, revoked-session cleanup');
+    console.log('PASS hosted dashboard browser: timeline offsets/overlap/gaps/zero duration, literal SQL, Berlin time, mobile, keyboard, CSP, no token storage, revoked-session cleanup');
   } finally {
     await browser.close();
   }

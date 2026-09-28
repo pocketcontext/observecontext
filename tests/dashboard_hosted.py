@@ -227,7 +227,11 @@ def main():
             tokens.append(token)
             operation = request('POST', '/api/collections/operations/records', {'source': 'hosted-synthetic'}, token)
             payload = fixture(operation=operation['id'])
-            payload.update(sql=marker, request_id=str(index + 1) * 32)
+            payload.update(sql=marker, request_id=str(index + 1) * 32, duration_ms=20,
+                           spans=[{'name': 'auth', 'offset_ms': 0, 'duration_ms': 8},
+                                  {'name': 'sql.execute', 'offset_ms': 4, 'duration_ms': 10},
+                                  {'name': 'sql.scan', 'offset_ms': 12, 'duration_ms': 3},
+                                  {'name': 'encode', 'offset_ms': 20, 'duration_ms': 0}])
             traces.append(request('POST', '/api/collections/traces/records', payload, token))
         # Password provisioning revokes old sessions. Reauthenticate through Google.
         alice, alice_session = login('alice@example.com')

@@ -31,7 +31,15 @@ Do not put authentication tokens in dashboard URLs.
 ## Operation views
 
 The dashboard shows recent operations, client/server pairs, captured SQL and
-phase timings. Times use Europe/Berlin. Recent operations refresh every five
+phase timelines. Each measurement has its own millisecond axis from zero to its
+total duration. Bars start at the recorded phase offset and extend for the phase
+duration, exposing gaps and overlaps. Vertical markers show zero-duration phases;
+labels retain reported offsets and durations, rounded to two decimal places.
+A phase extending past the trace's end within the ingestion rounding tolerance is
+clipped to the axis. Client and server axes are independent; they do not imply
+synchronized clocks. Existing stored traces need no conversion.
+
+Times use Europe/Berlin. Recent operations refresh every five
 seconds while the tab is visible. Trace details load on demand; the 24-hour
 summary loads when expanded and refreshes at most once a minute automatically.
 Private data is cleared from the page when authentication expires or the user
