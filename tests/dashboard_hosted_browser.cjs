@@ -93,6 +93,15 @@ const {chromium}=require(process.argv[2]);
   const second=await context.newPage();await second.goto(operationURL);
   await second.locator('#detail').waitFor({state:'visible'});
   await second.reload();await second.locator('#detail').waitFor({state:'visible'});
+  // An old 401 must not clear a same-account token renewed by another tab.
+  let oldRequest;await page.route('**/api/context/query',route=>{oldRequest=route;});
+  await page.locator('#refresh').click();await page.waitForTimeout(1100);
+  await second.evaluate(async()=>{const {renew}=await import('/dashboard/assets/api.js');await renew();});
+  if(!oldRequest)throw Error('Missing held query');
+  await oldRequest.fulfill({status:401,contentType:'application/json',body:'{}'});
+  await page.waitForTimeout(100);
+  if(await page.locator('#dashboard').isHidden())throw Error('Old rejection cleared renewed session');
+  await page.unroute('**/api/context/query');
   // Cross-tab account switch must invalidate every old private view.
   await second.evaluate(async auth=>{const {pb}=await import('/dashboard/assets/api.js');pb.authStore.save(auth.token,auth.record);},config.bob);
   await page.waitForFunction(()=>document.querySelector('#account-name').textContent==='bob');

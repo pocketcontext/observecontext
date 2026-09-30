@@ -71,16 +71,16 @@ function clearSession(message='Sign in to view your operations.'){
  $('report-panel').open=false;$('signin').hidden=false;$('login-status').textContent=message;
 }
 async function get(path,options={}){
- const epoch=sessionEpoch,controller=new AbortController();requests.add(controller);
+ const epoch=sessionEpoch,identity=authIdentity(),token=pb.authStore.token,controller=new AbortController();requests.add(controller);
  try{
   if(!pb.authStore.isValid){pb.authStore.clear();throw new SessionEnded();}
   let data;
   try{data=await view(path,controller.signal);}catch(error){
-   if(epoch!==sessionEpoch)throw new SessionEnded();
-   if([401,403].includes(error.status)){pb.authStore.clear();throw new SessionEnded();}
+   if(epoch!==sessionEpoch||identity!==authIdentity())throw new SessionEnded();
+   if([401,403].includes(error.status)){if(token===pb.authStore.token)pb.authStore.clear();throw new SessionEnded();}
    throw error;
   }
-  if(epoch!==sessionEpoch)throw new SessionEnded();return data;
+  if(epoch!==sessionEpoch||identity!==authIdentity())throw new SessionEnded();return data;
  }finally{requests.delete(controller)}
 }
 let operations=[],selected=null,detailVersion=0,searchTimer,searchVersion=0;
@@ -99,13 +99,13 @@ async function openNavigation(){
 }
 $('login').addEventListener('click',async()=>{
  $('login').disabled=true;
- const epoch=sessionEpoch;
+ const epoch=sessionEpoch,token=pb.authStore.token;
  try{
   // Separate store prevents a delayed popup completing after a different login.
   const {default:PocketBase,BaseAuthStore}=await import('./pocketbase.es.mjs');
   const login=new PocketBase(location.origin,new BaseAuthStore());
   const auth=await login.collection('users').authWithOAuth2({provider:'google'});
-  if(epoch===sessionEpoch)pb.authStore.save(auth.token,auth.record);
+  if(epoch===sessionEpoch&&token===pb.authStore.token)pb.authStore.save(auth.token,auth.record);
  }catch{if(epoch===sessionEpoch)$('login-status').textContent='Sign-in failed. Please try again.';}
  finally{$('login').disabled=false;}
 });
