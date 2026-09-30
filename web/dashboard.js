@@ -1,3 +1,4 @@
+import { pb, renew, view } from './api.js';
 const $=id=>document.getElementById(id);
 const ms=n=>Number(n).toFixed(2)+' ms';
 const berlinTime=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Berlin',year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3,hourCycle:'h23',timeZoneName:'short'});
@@ -58,10 +59,10 @@ function groupOperations(traces){
 function elapsed(traces){return traces.length===1?ms(traces[0].duration_ms):traces.length?traces.length+' traces':'—'}
 function pairing(op){if(op.paired)return 'Client + server';if(op.traces.length>1)return op.traces.length+' measurements';return role(op.primary)==='unknown'?'Unclassified':role(op.primary)==='client'?'Client only':'Server only'}
 function status(op){const values=[...new Set(op.traces.map(t=>t.status===0?'Transport error':String(t.status)))];return values.join(' / ')}
-let sessionEpoch=0,authenticated=false,csrf='',pendingLogoutCsrf='',requests=new Set();
+let sessionEpoch=0,authenticated=false,requests=new Set();
 class SessionEnded extends Error {}
 function clearSession(message='Sign in to view your operations.'){
- sessionEpoch++;authenticated=false;csrf='';for(const controller of requests)controller.abort();requests.clear();
+ sessionEpoch++;authenticated=false;searchVersion++;loading=false;reportLoading=false;for(const controller of requests)controller.abort();requests.clear();
  operations=[];selected=null;detailVersion++;lastReport=0;
  for(const id of ['recent','report','measurements'])$(id).replaceChildren();
  for(const id of ['identity','sql','detail-title','notice','status','window-note','report-status','account-name','timing-note'])$(id).textContent='';
@@ -72,11 +73,14 @@ function clearSession(message='Sign in to view your operations.'){
 async function get(path,options={}){
  const epoch=sessionEpoch,controller=new AbortController();requests.add(controller);
  try{
-  const r=await fetch('/api/dashboard/'+path,{credentials:'same-origin',cache:'no-store',...options,signal:controller.signal});
-  if(epoch!==sessionEpoch)throw new SessionEnded();
-  if(r.status===401||r.status===403){clearSession('Your session ended. Sign in again to continue.');throw new SessionEnded();}
-  if(!r.ok)throw Error('Cannot load this view. Check the connection and try again.');
-  const data=r.status===204?{}:await r.json();if(epoch!==sessionEpoch)throw new SessionEnded();return data;
+  if(!pb.authStore.isValid){pb.authStore.clear();throw new SessionEnded();}
+  let data;
+  try{data=await view(path,controller.signal);}catch(error){
+   if(epoch!==sessionEpoch)throw new SessionEnded();
+   if([401,403].includes(error.status)){pb.authStore.clear();throw new SessionEnded();}
+   throw error;
+  }
+  if(epoch!==sessionEpoch)throw new SessionEnded();return data;
  }finally{requests.delete(controller)}
 }
 let operations=[],selected=null,detailVersion=0,searchTimer,searchVersion=0;
@@ -93,7 +97,18 @@ async function openNavigation(){
  const op=groupOperations(traces)[0];if(op){op.limited=limited;await showDetail(op,false);}else {$('detail').hidden=true;$('notice').textContent='This operation has no measurements.';}
  }catch(error){if(version===searchVersion&&authenticated){$('detail').hidden=true;$('notice').textContent=error.message;}}
 }
-$('login').addEventListener('click',()=>{try{sessionStorage.setItem('observecontext.destination',location.hash);}catch{}});
+$('login').addEventListener('click',async()=>{
+ $('login').disabled=true;
+ const epoch=sessionEpoch;
+ try{
+  // Separate store prevents a delayed popup completing after a different login.
+  const {default:PocketBase,BaseAuthStore}=await import('./pocketbase.es.mjs');
+  const login=new PocketBase(location.origin,new BaseAuthStore());
+  const auth=await login.collection('users').authWithOAuth2({provider:'google'});
+  if(epoch===sessionEpoch)pb.authStore.save(auth.token,auth.record);
+ }catch{if(epoch===sessionEpoch)$('login-status').textContent='Sign-in failed. Please try again.';}
+ finally{$('login').disabled=false;}
+});
 window.addEventListener('hashchange',()=>{if(authenticated){$('collection').value=navigation().collection;$('filter').value=navigation().q;void refresh();void openNavigation();}});
 
 function renderOperations(){
@@ -167,24 +182,25 @@ async function refresh(manual=false){
  finally{loading=false;$('refresh').disabled=false;if(authenticated&&requestedHash!==location.hash)void refresh();}
 }
 async function init(){
+ if(!pb.authStore.isValid){pb.authStore.clear();clearSession();return;}
+ const epoch=sessionEpoch;
  try{
-  const data=await get('session');if(!data.user){clearSession();return;}
-  authenticated=true;csrf=data.csrf||'';pendingLogoutCsrf='';$('signin').hidden=true;$('dashboard').hidden=false;$('account-actions').hidden=false;
-  $('account-name').textContent=data.user.name||data.user.email||'Signed in';
-  try{const saved=sessionStorage.getItem('observecontext.destination');sessionStorage.removeItem('observecontext.destination');if(!location.hash&&saved&&/^#\//.test(saved))history.replaceState(null,'',saved);}catch{}
+  await renew();if(epoch!==sessionEpoch)return;
+  authenticated=true;$('signin').hidden=true;$('dashboard').hidden=false;$('account-actions').hidden=false;
+  const user=pb.authStore.record;$('account-name').textContent=user.name||user.email||'Signed in';
   $('collection').value=navigation().collection;$('filter').value=navigation().q;await refresh();await openNavigation();
- }catch(e){if(!(e instanceof SessionEnded))clearSession('Cannot check your session. Reload to try again.')}
+ }catch{if(epoch===sessionEpoch)clearSession('Cannot verify your session. Reload to try again.');}
 }
-async function logout(){
- const logoutCsrf=csrf||pendingLogoutCsrf;pendingLogoutCsrf=logoutCsrf;clearSession('Signing out…');$('logout').disabled=true;
- try{
-  const response=await fetch('/api/dashboard/logout',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'X-CSRF-Token':logoutCsrf}});
-  if(response.ok||response.status===401)pendingLogoutCsrf='';
-  $('login-status').textContent=response.ok||response.status===401?'You have signed out.':'Sign-out could not be confirmed. Please retry.';
-  if(!response.ok&&response.status!==401){$('account-actions').hidden=false;$('logout').textContent='Retry sign out';}
- }catch(e){$('login-status').textContent='Sign-out could not be confirmed. Please retry.';$('account-actions').hidden=false;$('logout').textContent='Retry sign out';}
- finally{$('logout').disabled=false;}
-}
+function logout(){pb.authStore.clear();clearSession('You have signed out.');}
+function authIdentity(){const user=pb.authStore.record;return pb.authStore.isValid&&user?JSON.stringify([user.id,!!user.can_view_all_traces,!!user.disabled]):'';}
+let identity=authIdentity();
+pb.authStore.onChange(()=>{
+ const next=authIdentity();
+ if(next!==identity || !next){identity=next;clearSession();if(next)void init();}
+});
+// Polling remains authoritative; realtime transport reconnects cannot lose data.
+window.addEventListener('online',()=>{if(authenticated){void refresh();void openNavigation();}else void init();});
+setInterval(()=>{if(authenticated&&!document.hidden)void renew().catch(()=>{});},60000);
 $('refresh').onclick=()=>refresh(true);$('logout').onclick=logout;$('filter').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{const params=new URLSearchParams();if($('collection').value==='traces')params.set('collection','traces');if($('filter').value)params.set('q',$('filter').value);history.replaceState(null,'','#/'+navigation().path+(params.size?'?'+params:''));void refresh(true);},250);};
 $('collection').onchange=()=>{const params=new URLSearchParams();params.set('collection',$('collection').value);if($('filter').value)params.set('q',$('filter').value);location.hash='#/?'+params;};
 $('previous').onclick=()=>{const params=new URLSearchParams();params.set('collection',$('collection').value);params.set('q',$('filter').value);params.set('offset',Math.max(0,navigation().offset-50));location.hash='#/'+navigation().path+'?'+params;};

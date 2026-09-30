@@ -286,11 +286,11 @@ def smoke(image, tmp, run_id):
     check(status == 200 and 'Continue with Google' in body, 'hosted sign-in page is served')
     check("script-src 'self'" in reply.get('Content-Security-Policy', '') and
           'unsafe-inline' not in reply.get('Content-Security-Policy', ''), 'hosted assets use strict CSP')
-    for asset in ['dashboard.js', 'dashboard.css']:
+    for asset in ['dashboard.js', 'dashboard.css', 'api.js', 'pocketbase.es.mjs']:
         status, _, body = http('GET', base + '/dashboard/assets/' + asset, headers=dashboard_headers)
         check(status == 200 and len(body) > 100, 'hosted ' + asset + ' is packaged')
     status, reply, _ = http('GET', base + '/api/dashboard/data', headers=dashboard_headers)
-    check(status == 401, 'anonymous dashboard data is denied')
+    check(status == 404, 'obsolete cookie proxy is removed')
 
     step('settings taken from the environment, read with the superuser token')
     token = superuser_token(base, env['OBSERVECONTEXT_SUPERUSER_EMAIL'], env['OBSERVECONTEXT_SUPERUSER_PASSWORD'])

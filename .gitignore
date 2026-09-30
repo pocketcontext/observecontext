@@ -12,3 +12,5 @@ bin/
 *.jsonl
 *.jsonl.1
 .envrc.private
+
+node_modules/

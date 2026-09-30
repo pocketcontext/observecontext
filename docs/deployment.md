@@ -8,9 +8,7 @@ The public source target is `pocketcontext/observecontext`; the public image tar
 
 | Variable | Purpose |
 | --- | --- |
-| `BASE_URL` | Public HTTPS origin; also restricts browser origins and hosted dashboard callbacks. |
-| `OBSERVECONTEXT_DASHBOARD_INTERNAL_URL` | Optional strictly loopback API origin for dashboard queries; defaults to `http://127.0.0.1:80` in the container. Set to the bound loopback port for local development. |
-| `OBSERVECONTEXT_DASHBOARD_SESSION_TTL_SECONDS` | Optional hosted session lifetime, 1–28800 seconds; defaults to 3600. |
+| `BASE_URL` | Public HTTPS origin; also restricts browser API origins and configures the OAuth origin. |
 | `OBSERVECONTEXT_SUPERUSER_EMAIL`, `OBSERVECONTEXT_SUPERUSER_PASSWORD` | Paired startup operator credentials; provision separately for this app. |
 | `OBSERVECONTEXT_GOOGLE_CLIENT_ID`, `OBSERVECONTEXT_GOOGLE_CLIENT_SECRET` | Paired credentials for a separate Google Web OAuth client. |
 | `OBSERVECONTEXT_GOOGLE_WORKSPACE_DOMAIN` | Exact verified Google Workspace domain; unset disables automatic account creation. |

@@ -29,7 +29,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class Browser:
-    """Independent browser cookie jar; never exposes backend bearer tokens."""
+    """Synthetic HTTP transport."""
     def __init__(self):
         self.cookies = http.cookiejar.CookieJar()
         self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.cookies), NoRedirect())
@@ -87,6 +87,17 @@ def google_fixture():
             return self.reply(200, {'access_token': token, 'token_type': 'Bearer', 'expires_in': 3600})
 
         def do_GET(self):
+            parsed=urllib.parse.urlsplit(self.path)
+            if parsed.path == '/authorize':
+                params=urllib.parse.parse_qs(parsed.query)
+                code=secrets.token_urlsafe(24)
+                redirect=params['redirect_uri'][0]
+                codes[code]={'challenge':params['code_challenge'][0], 'redirect':redirect,
+                             'user':{'sub':'alice@example.com','email':'alice@example.com','name':'Alice','email_verified':True,'hd':'example.com'}}
+                self.send_response(302)
+                self.send_header('Location',redirect+'?'+urllib.parse.urlencode({'code':code,'state':params['state'][0]}))
+                self.end_headers()
+                return
             user = tokens.get(self.headers.get('Authorization', '').removeprefix('Bearer '))
             if self.path != '/userinfo' or not user:
                 return self.reply(401, {})
@@ -104,7 +115,7 @@ def google_fixture():
 
 
 @contextlib.contextmanager
-def hosted_server(binary, ttl=3600):
+def hosted_server(binary):
     with tempfile.TemporaryDirectory(prefix='observe-hosted-test-') as tmp:
         root = Path(tmp)
         for name in ('pb_hooks', 'pb_migrations', 'web'):
@@ -114,9 +125,8 @@ def hosted_server(binary, ttl=3600):
             sock.bind(('127.0.0.1', 0))
             port = sock.getsockname()[1]
         origin = f'http://127.0.0.1:{port}'
-        env = {**os.environ, 'BASE_URL': origin, 'OBSERVECONTEXT_DASHBOARD_INTERNAL_URL': origin,
-               'OBSERVECONTEXT_GOOGLE_WORKSPACE_DOMAIN': 'example.com', 'OBSERVECONTEXT_RATE_LIMITS': 'false',
-               'OBSERVECONTEXT_DASHBOARD_SESSION_TTL_SECONDS': str(ttl)}
+        env = {**os.environ, 'BASE_URL': origin,
+               'OBSERVECONTEXT_GOOGLE_WORKSPACE_DOMAIN': 'example.com', 'OBSERVECONTEXT_RATE_LIMITS': 'false'}
         for key in ('OBSERVECONTEXT_GOOGLE_CLIENT_ID', 'OBSERVECONTEXT_GOOGLE_CLIENT_SECRET'):
             env.pop(key, None)
         common = [str(Path(binary).resolve()), '--dir', str(root / 'pb_data'),
@@ -152,7 +162,7 @@ def hosted_server(binary, ttl=3600):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary', required=True)
-    parser.add_argument('--browser-module', help='Optional absolute path to installed Playwright module')
+    parser.add_argument('--browser-module')
     args = parser.parse_args()
     with google_fixture() as (provider_url, codes), hosted_server(args.binary) as (origin, request):
         admin = request('POST', '/api/collections/_superusers/auth-with-password',
@@ -161,167 +171,37 @@ def main():
                     'authURL': provider_url + '/authorize', 'tokenURL': provider_url + '/token',
                     'userInfoURL': provider_url + '/userinfo'}
         request('PATCH', '/api/collections/users', {'oauth2': {'enabled': True, 'providers': [provider]}}, admin)
-        api = origin + '/api/dashboard/'
-        anonymous = Browser()
-        html, headers = anonymous.request(origin + '/dashboard')
-        assert b'ObserveContext' in html and b'synthetic-secret' not in html
-        for endpoint in ('data', 'report', 'trace?id=aaaaaaaaaaaaaaa'):
-            anonymous.request(api + endpoint, expected=401)
-        anonymous.request(api + 'data', headers={'Host': 'attacker.example'}, expected=(400,403))
-        anonymous.request(api + 'query', method='POST', body={'sql': 'SELECT 1'}, expected=(404,405))
-
-        def begin(browser):
-            _, fields = browser.request(api + 'login', expected=(302,303,307))
-            destination = fields['Location']
-            params = urllib.parse.parse_qs(urllib.parse.urlsplit(destination).query)
-            assert destination.startswith(provider_url + '/authorize?')
-            assert params['code_challenge_method'] == ['S256']
-            assert params.get('code_challenge') and not params.get('code_verifier')
-            return params
-
-        def finish(browser, params, email, *, expected=(302,303), wrong_pkce=False, state=None):
-            code = secrets.token_urlsafe(24)
-            redirect = params['redirect_uri'][0]
-            assert redirect == origin + '/api/oauth2-redirect'
-            codes[code] = {'challenge': 'wrong' if wrong_pkce else params['code_challenge'][0],
-                           'redirect': redirect,
-                           'user': {'sub': email, 'email': email, 'name': email.split('@')[0],
-                                    'email_verified': True, 'hd': 'example.com'}}
-            return browser.request(redirect + '?' + urllib.parse.urlencode({'code': code, 'state': state or params['state'][0]}),
-                                   expected=expected)
-
-        def login(email):
-            browser = Browser()
-            params = begin(browser)
-            finish(browser, params, email)
-            finish(browser, params, email, expected=(400,401,403))
-            session, fields = browser.json(api + 'session')
-            assert session['user']['email'] == email and session.get('csrf')
-            cookies = [cookie for cookie in browser.cookies if cookie.name.endswith('dashboard_session')]
-            assert len(cookies) == 1 and cookies[0].has_nonstandard_attr('HttpOnly')
-            assert cookies[0].path == '/' and cookies[0].get_nonstandard_attr('SameSite') == 'Lax'
-            assert len(cookies[0].value) >= 32 and cookies[0].value.count('.') != 2
-            assert not any(key in session for key in ('token', 'access_token', 'refresh_token'))
-            assert fields['Cache-Control'] == 'no-store'
-            return browser, session
-
-        pending = Browser()
-        params = begin(pending)
-        finish(Browser(), params, 'alice@example.com', expected=(400,401,403))
-        finish(pending, params, 'alice@example.com', state='ocd_wrong-state', expected=(400,401,403))
-        wrong = Browser()
-        finish(wrong, begin(wrong), 'alice@example.com', wrong_pkce=True, expected=(400,401,403,502))
-        wrong.request(api + 'data', expected=401)
-        alice, alice_session = login('alice@example.com')
-        bob, bob_session = login('bob@example.com')
-        alice_id, bob_id = alice_session['user']['id'], bob_session['user']['id']
-        # Provision a password only for synthetic ingestion; browser login remains OAuth.
-        password = 'SyntheticHostedPassword123!'
-        tokens = []
-        traces = []
-        marker = "SELECT '<img src=x onerror=window.__traceExecuted=true><script>alert(1)</script>'"
-        for index, (user_id, email) in enumerate(((alice_id, 'alice@example.com'), (bob_id, 'bob@example.com'))):
-            request('PATCH', '/api/collections/users/records/' + user_id,
-                    {'password': password, 'passwordConfirm': password}, admin)
-            token = request('POST', '/api/collections/users/auth-with-password', {'identity': email, 'password': password})['token']
-            tokens.append(token)
-            operation = request('POST', '/api/collections/operations/records', {'source': 'hosted-synthetic'}, token)
-            payload = fixture(operation=operation['id'])
-            payload.update(sql=marker, request_id=str(index + 1) * 32, duration_ms=20,
-                           spans=[{'name': 'auth', 'offset_ms': 0, 'duration_ms': 8},
-                                  {'name': 'sql.execute', 'offset_ms': 4, 'duration_ms': 10},
-                                  {'name': 'sql.scan', 'offset_ms': 12, 'duration_ms': 3},
-                                  {'name': 'encode', 'offset_ms': 20, 'duration_ms': 0}])
-            traces.append(request('POST', '/api/collections/traces/records', payload, token))
-        # Password provisioning revokes old sessions. Reauthenticate through Google.
-        alice, alice_session = login('alice@example.com')
-        bob, bob_session = login('bob@example.com')
-        data, _ = alice.json(api + 'data')
-        assert {row['id'] for row in data['recent']} == {traces[0]['id']}
-        owned_operation = traces[0]['operation']
-        direct, _ = alice.json(api + 'operation?id=' + owned_operation)
-        assert direct['operation']['id'] == owned_operation and direct['recent'][0]['id'] == traces[0]['id']
-        denied, _ = alice.json(api + 'operation?id=' + traces[1]['operation'])
-        assert denied['operation'] is None and denied['recent'] == []
-        alice.request(api + 'operation?id=' + urllib.parse.quote("' OR 1=1 --"), expected=400)
-        filtered, _ = alice.json(api + 'data?collection=traces&q=' + traces[0]['request_id'])
-        assert [row['id'] for row in filtered['recent']] == [traces[0]['id']]
-        absent, _ = alice.json(api + 'data?q=missing-fixture')
-        assert absent['recent'] == []
-        next_page, _ = alice.json(api + 'data?offset=50')
-        assert next_page['recent'] == []
-        detail, _ = alice.json(api + 'trace?id=' + traces[0]['id'])
-        assert detail['trace']['sql'] == marker and detail['spans']
-        raw, fields = alice.request(api + 'trace?id=' + traces[1]['id'], expected=(200,404))
-        assert traces[1]['id'].encode() not in raw and marker.encode() not in raw
-        alice.request(api + 'trace?id=' + urllib.parse.quote("' OR 1=1 --"), expected=(400,404))
-        alice.request(api + 'data?sql=SELECT%20*%20FROM%20users', expected=(200,400))
-        alice.request(api + 'logout', method='POST', headers={'Origin': origin}, expected=403)
-        alice.request(api + 'logout', method='POST', headers={'Origin': 'https://attacker.example', 'X-CSRF-Token': alice_session['csrf']}, expected=403)
-        alice.request(api + 'data')
-        alice.request(api + 'data', headers={'Origin': 'https://attacker.example'}, expected=403)
-
+        password='SyntheticHostedPassword123!'
+        identities=[]
+        marker="SELECT '<img src=x onerror=window.__traceExecuted=true><script>alert(1)</script>'"
+        for index,email in enumerate(['alice@example.com','bob@example.com']):
+            user=request('POST','/api/collections/users/records',{'name':email.split('@')[0],'email':email,'password':password,'passwordConfirm':password,'verified':True},admin)
+            auth=request('POST','/api/collections/users/auth-with-password',{'identity':email,'password':password})
+            identities.append(auth)
+            operation=request('POST','/api/collections/operations/records',{'source':'hosted-synthetic'},auth['token'])
+            payload=fixture(operation=operation['id'])
+            payload.update(sql=marker,request_id=str(index+1)*32,duration_ms=20,
+                spans=[{'name':'auth','offset_ms':0,'duration_ms':8},{'name':'sql.execute','offset_ms':4,'duration_ms':10},
+                       {'name':'sql.scan','offset_ms':12,'duration_ms':3},{'name':'encode','offset_ms':20,'duration_ms':0}])
+            request('POST','/api/collections/traces/records',payload,auth['token'])
+        anonymous=Browser()
+        html,headers=anonymous.request(origin+'/dashboard')
+        assert b'type="module"' in html and "script-src 'self'" in headers['Content-Security-Policy']
+        for asset in ['dashboard.js','api.js','pocketbase.es.mjs','dashboard.css']:
+            anonymous.request(origin+'/dashboard/assets/'+asset)
+        request('POST','/api/context/query',{'sql':'SELECT id FROM traces'},expected=(401,403))
+        anonymous.request(origin+'/api/dashboard/data',expected=404)
+        for identity in identities:
+            result=request('POST','/api/context/query',{'sql':'SELECT created_by FROM traces'},identity['token'])
+            assert result['rows']==[[identity['record']['id']]]
         if args.browser_module:
-            cookie_data = [{'name': cookie.name, 'value': cookie.value, 'url': origin,
-                            'httpOnly': cookie.has_nonstandard_attr('HttpOnly'), 'secure': cookie.secure,
-                            'sameSite': 'Lax'} for cookie in alice.cookies]
-            payload = {'url': origin + '/dashboard', 'cookies': cookie_data, 'marker': marker,
-                       'forbidden': [admin, *tokens, 'synthetic-secret']}
-            result = subprocess.run(['node', str(ROOT / 'tests/dashboard_hosted_browser.cjs'), args.browser_module],
-                                    input=json.dumps(payload), text=True, capture_output=True)
-            assert result.returncode == 0, result.stdout + result.stderr
+            payload={'url':origin+'/dashboard','marker':marker,'alice':identities[0],'bob':identities[1],
+                     'password':password,'admin':admin}
+            result=subprocess.run(['node',str(ROOT/'tests/dashboard_hosted_browser.cjs'),args.browser_module],
+                                  input=json.dumps(payload),text=True,capture_output=True)
+            assert result.returncode==0,result.stdout+result.stderr
             print(result.stdout.strip())
-
-        request('PATCH', '/api/collections/users/records/' + bob_id, {'can_view_all_traces': True}, admin)
-        bob.request(api + 'data', expected=401)
-        bob, bob_session = login('bob@example.com')
-        data, _ = bob.json(api + 'data')
-        assert {row['id'] for row in data['recent']} == {trace['id'] for trace in traces}
-        bob.json(api + 'trace?id=' + traces[0]['id'])
-        request('PATCH', '/api/collections/users/records/' + bob_id, {'can_view_all_traces': False}, admin)
-        bob.request(api + 'data', expected=401)
-        bob, bob_session = login('bob@example.com')
-        data, _ = bob.json(api + 'data')
-        assert {row['id'] for row in data['recent']} == {traces[1]['id']}
-        request('PATCH', '/api/collections/users/records/' + bob_id, {'disabled': True}, admin)
-        bob.request(api + 'data', expected=401)
-        alice.request(api + 'logout', method='POST', headers={'Origin': origin, 'X-CSRF-Token': alice_session['csrf']}, expected=(200,204))
-        alice.request(api + 'data', expected=401)
-        # Exercise server-enforced expiry, independent of browser cookie expiry.
-        with hosted_server(args.binary, ttl=1) as (origin, request):
-            api = origin + '/api/dashboard/'
-            admin = request('POST', '/api/collections/_superusers/auth-with-password',
-                            {'identity': 'admin@example.com', 'password': 'SyntheticAdminPassword123!'})['token']
-            request('PATCH', '/api/collections/users', {'oauth2': {'enabled': True, 'providers': [provider]}}, admin)
-            expiring, _ = login('expires@example.com')
-            cookie = next(cookie for cookie in expiring.cookies if cookie.name.endswith('dashboard_session'))
-            captured_cookie = cookie.name + '=' + cookie.value
-            time.sleep(1.1)
-            Browser().request(api + 'data', headers={'Cookie': captured_cookie}, expected=401)
-            # Simulate the trusted TLS terminator: HTTPS origin and canonical Host,
-            # while the fixture's actual transport remains private loopback HTTP.
-            public_origin = 'https://observe.example.test'
-            request('PATCH', '/api/settings', {'meta': {'appURL': public_origin}}, admin)
-            secure_browser = Browser()
-            _, fields = secure_browser.request(api + 'login', headers={'Host': 'observe.example.test'}, expected=302)
-            cookie_header = fields['Set-Cookie']
-            assert '__Host-oc_dashboard_flow=' in cookie_header
-            assert 'Secure' in cookie_header and 'HttpOnly' in cookie_header and 'Path=/' in cookie_header
-            assert 'Domain=' not in cookie_header
-            params = urllib.parse.parse_qs(urllib.parse.urlsplit(fields['Location']).query)
-            code = secrets.token_urlsafe(24)
-            codes[code] = {'challenge': params['code_challenge'][0], 'redirect': public_origin + '/api/oauth2-redirect',
-                           'user': {'sub': 'secure@example.com', 'email': 'secure@example.com',
-                                    'name': 'Secure', 'email_verified': True, 'hd': 'example.com'}}
-            callback = origin + '/api/oauth2-redirect?' + urllib.parse.urlencode({'code': code, 'state': params['state'][0]})
-            _, fields = secure_browser.request(callback, headers={'Host': 'observe.example.test',
-                            'Cookie': cookie_header.split(';')[0]}, expected=303)
-            session_header = next(value for value in fields.get_all('Set-Cookie') if '__Host-oc_dashboard_session=' in value)
-            assert 'Secure' in session_header and 'HttpOnly' in session_header and 'Path=/' in session_header
-            assert 'Domain=' not in session_header
-
-    print('PASS hosted OAuth/PKCE, session ownership, fixed views, CSRF, read-all revocation and disabled accounts')
-
+    print('PASS hosted SDK assets, CSP, direct authenticated SQL ownership and removed session proxy')
 
 if __name__ == '__main__':
     main()

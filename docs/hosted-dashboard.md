@@ -14,19 +14,25 @@ request runs fixed queries through the existing authenticated, requester-filtere
 SQL API with that viewer's ordinary identity. Operation ownership and the
 operator-managed read-all role apply independently to each viewer.
 
-The browser holds only an opaque session cookie. PocketBase bearer tokens and
-OAuth PKCE state stay in bounded process memory, not browser JavaScript or local
-storage. Production cookies use Secure, HttpOnly, SameSite=Lax and the `__Host-`
-prefix. Browser sessions expire after one hour by default and are lost on server
-restart. Account disabling, token revocation and read-all role changes invalidate
-existing sessions; a fresh login is required. Logout removes the server session
-and requires the exact origin and session CSRF token.
+The official PocketBase JavaScript SDK uses `LocalAuthStore` with the key
+`observecontext.auth`. Sign-in persists across tabs and browser restarts on this
+origin. Logout clears the store and private views across tabs; it does not revoke
+copies of the bearer token elsewhere. Tokens are accessible to browser JavaScript.
+The pinned SDK is vendored from the npm lockfile, served from this origin and
+restricted by the dashboard CSP; no remote CDN is used.
 
-Google authorization uses one-use browser-bound state and PKCE. The existing
-`/api/oauth2-redirect` callback handles dashboard-prefixed state; normal PocketBase
-OAuth callback behavior remains available for other clients. The registered
-production redirect and the CLI's `http://127.0.0.1:8765/callback` remain unchanged.
-Do not put authentication tokens in dashboard URLs.
+Google sign-in uses the SDK's stock realtime OAuth flow and `/api/oauth2-redirect`.
+The URL hash stays in the original tab, preserving record and search destinations.
+Private reads use the ordinary authenticated filtered SQL API directly. There is
+no dashboard cookie session, token proxy or OAuth callback interceptor. The old
+cookie sessions are not migrated; existing viewers sign in once after deployment.
+
+Startup validates and renews a persisted token before showing private data.
+Visible authenticated tabs renew once a minute; a separate in-memory auth store
+prevents delayed renewal from undoing logout or an account switch. Revocation or
+expiry clears private content. Account changes cancel old requests and reject late
+responses. Existing server permissions still independently protect SQL, REST and
+realtime; LocalAuthStore grants no additional access.
 
 ## Operation views
 
@@ -53,27 +59,24 @@ be summed; client-minus-server time is not pure network latency.
 
 ## Configuration and deployment
 
-`BASE_URL` configures the canonical public application origin through stored
-PocketBase settings. Production uses HTTPS. The server accesses its own API at
-`OBSERVECONTEXT_DASHBOARD_INTERNAL_URL`, defaulting to `http://127.0.0.1:80` in the
-container. Only literal loopback origins are accepted. For local development,
-set this to the actual bound port and configure the public origin accordingly.
-The internal origin is operator configuration, never derived from browser headers.
+`BASE_URL` configures the canonical public application origin. Production uses
+HTTPS. `OBSERVECONTEXT_DASHBOARD_INTERNAL_URL` and
+`OBSERVECONTEXT_DASHBOARD_SESSION_TTL_SECONDS` are obsolete and ignored.
+Browser token lifetime is determined by the users auth collection; normal SDK
+renewal extends an active session. A server restart no longer signs out viewers.
 
-`OBSERVECONTEXT_DASHBOARD_SESSION_TTL_SECONDS` optionally sets an absolute session
-lifetime from 1 to 28800 seconds; the default is 3600. No new external service,
-DNS record, OAuth client or deployment credentials are required.
-
-The image includes `web/` assets and application hooks. Keep automatic ONCE
-updates disabled and use the existing locked graceful-stop deployment wrapper.
-A deployment signs out browser sessions because session state is ephemeral;
-ordinary CLI tokens and stored telemetry remain unaffected.
+The image includes the checked-in `web/` assets, SDK license and application hooks.
+Rebuild the pinned SDK assets with `npm ci --ignore-scripts && npm run build`.
+Keep automatic ONCE updates disabled and use the existing locked graceful-stop
+wrapper. No new external service, DNS record, OAuth client or deployment
+credentials are required. The optional personal Python dashboard is unchanged.
 
 ## Validation
 
-The required isolated security suite exercises real OAuth exchanges with a
-synthetic provider, independent user sessions, trace ownership, read-all changes,
-revocation, expiry, logout, origin/CSRF checks and callback replay rejection:
+The isolated suite exercises direct SQL ownership, local SDK assets and CSP.
+Its real browser mode covers stock SDK OAuth/realtime callback, persistent and
+cross-tab authentication, account changes, revocation, delayed refresh/SQL cleanup,
+linked destinations, keyboard navigation and mobile timeline geometry:
 
 ```sh
 python3 tests/dashboard_hosted.py --binary /absolute/path/to/pinned/pocketcontext
@@ -100,18 +103,9 @@ collection, including when many traces share an operation. Permanent
 `/dashboard#/operations/<id>` and `/dashboard#/traces/<id>` URLs resolve directly,
 independent of the recent list. Trace details link to their parent operation.
 Copy record link omits filters; Copy search link preserves collection, text and
-page offset. A pending destination survives Google sign-in in per-tab storage;
-no authentication tokens are stored there.
+page offset. A pending destination survives Google sign-in in the original tab URL hash.
 
 Operation detail is bounded to 500 trace summaries and 20 detailed measurements;
 the UI reports the bound and directs readers to search the operation ID in Traces
 for complete paginated browsing. Sources and correlation values remain diagnostic
 metadata and never grant visibility. Opening a link performs authenticated reads.
-
-The 30 September 2026 navigation change passed all mandatory README Python
-validation commands on the unchanged a92b0de pin. The actual hosted browser suite
-covered operation/trace reload and history, collection search, 51 traces sharing
-one operation across two pages, mobile geometry, keyboard access, literal SQL,
-CSP, token isolation and session revocation. The authenticated endpoint tests
-covered cross-owner denial, malformed IDs, search and offsets. Container gates
-remain required in release CI.

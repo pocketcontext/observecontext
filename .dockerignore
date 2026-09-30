@@ -11,3 +11,6 @@
 !web/*.html
 !web/*.js
 !web/*.css
+
+!web/pocketbase.es.mjs
+!web/pocketbase.LICENSE.md

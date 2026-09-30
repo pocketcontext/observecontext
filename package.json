@@ -1,0 +1,11 @@
+{
+  "name": "observecontext-dashboard",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-dashboard.mjs"
+  },
+  "dependencies": {
+    "pocketbase": "0.28.1"
+  }
+}

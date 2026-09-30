@@ -6,7 +6,7 @@
 <link rel="stylesheet" href="/dashboard/assets/dashboard.css">
 <main>
 <header><div><h1>ObserveContext</h1><p>One operation. Client and server timings together.</p></div><div id="account-actions" hidden><span id="account-name"></span><button id="logout" type="button">Sign out</button></div></header>
-<section id="signin" aria-labelledby="signin-title"><h2 id="signin-title">Your operations, in context</h2><p>Sign in with your Workspace Google account to inspect your request timings.</p><a class="button" href="/api/dashboard/login" id="login">Continue with Google</a><p id="login-status" role="status" aria-live="polite">Checking your session…</p></section>
+<section id="signin" aria-labelledby="signin-title"><h2 id="signin-title">Your operations, in context</h2><p>Sign in with your Workspace Google account to inspect your request timings.</p><button type="button" id="login">Continue with Google</button><p id="login-status" role="status" aria-live="polite">Checking your session…</p></section>
 <div id="dashboard" hidden><aside class="collection-sidebar" aria-label="Collection navigation"><label>Collection<select id="collection"><option value="operations">Operations</option><option value="traces">Traces</option></select></label><label>Search records<input id="filter" type="search" placeholder="Service, route or status" autocomplete="off"></label><p>Search all records you can access by ID, service, route, status or correlation.</p></aside><div class="dashboard-content">
 <div class="toolbar"><button id="refresh" type="button">Refresh</button></div>
 <div id="status" role="status" aria-live="polite">Loading operations…</div><div id="notice" class="error" role="alert"></div>
@@ -24,5 +24,5 @@
 <details class="panel" id="report-panel"><summary>Trace measurements · last 24 hours</summary><p>Each client or server trace is counted separately in this diagnostic summary. These are measurement counts, not operation counts.</p><p id="report-status" role="status"></p><div class="scroll"><table><thead><tr><th>Service / route</th><th>Measurements</th><th>Average</th><th>Maximum</th><th>Errors</th></tr></thead><tbody id="report"></tbody></table></div></details>
 </div></div>
 </main>
-<script src="/dashboard/assets/dashboard.js" defer></script>
+<script src="/dashboard/assets/dashboard.js" type="module"></script>
 </html>

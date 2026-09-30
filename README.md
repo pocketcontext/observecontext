@@ -28,7 +28,7 @@ python3 skills/observecontext/scripts/oc.py recent --pretty
 python3 skills/observecontext/scripts/oc.py dashboard
 ```
 
-The hosted dashboard is served at the application's root URL, including `https://observe.pocketcontext.com/`. Sign in with your own Google Workspace identity. Each viewer sees their own operations unless an operator grants read-all access. The browser receives an opaque HttpOnly session cookie; API bearer tokens remain in bounded server memory. See [hosted dashboard](docs/hosted-dashboard.md) for authentication, deployment and session behavior.
+The hosted dashboard is served at the application's root URL, including `https://observe.pocketcontext.com/`. Sign in with your own Google Workspace identity. Each viewer sees their own operations unless an operator grants read-all access. The official PocketBase JS SDK stores each viewer’s application token in `LocalAuthStore` (`observecontext.auth`), sharing sign-in and logout across tabs on this origin and retaining sign-in across browser restarts. Tokens are accessible to browser JavaScript. See [hosted dashboard](docs/hosted-dashboard.md) for authentication, deployment and session behavior.
 
 The optional `oc.py dashboard` remains personal and loopback-only at `127.0.0.1:8766`, with credentials in Python and a private printed URL. Forward port 8766 over SSH when using it remotely. The hosted dashboard requires neither that process nor port forwarding. Both show completed operations, paired client/server measurements and Europe/Berlin timestamps. For the legacy protected development proxy, see [dashboard tunnel](docs/dashboard-tunnel.md).
 
@@ -42,7 +42,7 @@ See [instrumentation](docs/instrumentation.md) for client-requested source trace
 
 ## Validation
 
-Use synthetic data and isolated temporary databases. Build the exact server pin, then run:
+Use synthetic data and isolated temporary databases. Install the locked browser dependency with `npm ci --ignore-scripts`, run `npm run build`, and verify the vendored SDK is unchanged with `git diff --exit-code -- web/pocketbase.es.mjs web/pocketbase.LICENSE.md`. Build the exact server pin, then run:
 
 ```sh
 python3 tests/integration.py --binary /absolute/path/to/pinned/pocketcontext
