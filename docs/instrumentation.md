@@ -45,13 +45,13 @@ Client duration covers HTTP through response consumption. Source retrieval and O
 
 ## Scripts using multiple source origins
 
-List every permitted origin explicitly, with a distinct client service label. `--service` labels the shared operation; `--origin` supplies per-origin client labels. MetaContext can then trace catalog SQL/REST and source schema requests within the same invocation:
+List every permitted origin explicitly, with a distinct client service label. `--service` labels the shared operation; `--origin` supplies per-origin client labels. For a Python script that calls two applications, capture both origins within the same invocation:
 
 ```sh
-python3 /skill/scripts/oc.py capture --service metacontext.ingestion --upload \
-  --origin "metacontext.client=$METACONTEXT_URL" \
-  --origin "source.metadata=https://source.example.com" \
-  /metacontext/ingestion/sync.py --database DATABASE_ID
+python3 /skill/scripts/oc.py capture --service workspace.report --upload \
+  --origin "crm.client=https://crm.example.com" \
+  --origin "tasks.client=https://tasks.example.com" \
+  /path/to/your/report.py
 ```
 
 Mappings accept HTTP(S) origins only, with no credentials, path, query or fragment. Duplicate origins (including equivalent default ports) and duplicate client labels are rejected. The ObserveContext upload origin cannot be a capture source. Unlisted origins receive no opt-in headers or client traces. Trace retrieval stays on the corresponding origin with the same request's authentication; credentials observed on one source origin cannot be reused by the wrapper on another, even when both are allowlisted. This covers HTTP API requests only; it adds no browser, file or realtime instrumentation. Existing `--url ORIGIN --service LABEL` remains the single-origin shorthand.

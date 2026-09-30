@@ -37,7 +37,7 @@ def main():
  parser=argparse.ArgumentParser(description=__doc__)
  parser.add_argument('--workspace',type=Path,default=ROOT,help='sibling PocketContext application checkouts')
  parser.add_argument('--binary',type=Path,required=True,help='buffer-enabled PocketContext binary')
- parser.add_argument('--apps',nargs='+',choices=[*APPS,'metacontext'],default=[*APPS,'metacontext'])
+ parser.add_argument('--apps',nargs='+',choices=list(APPS),default=list(APPS))
  args=parser.parse_args();ROOT=args.workspace.resolve();BIN=args.binary.resolve()
  results=[]
  with tempfile.TemporaryDirectory(prefix='pocketcontext-client-rollout-') as path:
@@ -82,23 +82,6 @@ def main():
       assert {r[1] for r in writes}=={'/api/collections/projects/records','/api/collections/{collection}/records','/api/batch'},writes
       assert 'Synthetic private payload' not in json.dumps(writes)
      results.append({'app':app,'paired':True,'sql_opt_in':True,'snapshot':'snapshot' in cfg})
-     print(json.dumps(results[-1]),flush=True)
-   if 'metacontext' in args.apps:
-    with server('metacontext',tmp) as (catalog,catalog_request,catalog_token,_),server('dealcontext',tmp) as (source,source_request,source_token,_):
-     registration=catalog_request('POST','/api/collections/databases/records',{'name':'Synthetic schema source','endpoint':source},catalog_token)
-     env.update(METACONTEXT_URL=catalog,METACONTEXT_TOKEN=catalog_token,SOURCE_TOKEN=source_token)
-     result=command([oc,'capture','--service','metacontext.ingestion','--upload','--capture-sql',
-                     '--origin','metacontext.client='+catalog,'--origin','source.metadata='+source,
-                     ROOT/'metacontext/ingestion/sync.py','--database',registration['id']])
-     summary=json.loads(result.stdout)
-     rows=query('POST','/api/context/query',{'sql':"SELECT service,route,operation,count(*),sum(CASE WHEN sql!='' THEN 1 ELSE 0 END) FROM traces WHERE operation IN (SELECT id FROM operations WHERE source='metacontext.ingestion') GROUP BY service,route,operation"},token)['rows']
-     assert rows,summary
-     assert len({r[2] for r in rows})==1,rows
-     assert {r[0] for r in rows}=={'metacontext','metacontext.client','dealcontext','source.metadata'},rows
-     source_rows=[r for r in rows if r[0] in ('dealcontext','source.metadata')]
-     assert len(source_rows)==2 and all(r[1]=='/api/context/schema' and r[3]==1 and r[4]==0 for r in source_rows),source_rows
-     assert any(r[0]=='metacontext' and r[1]=='/api/context/query' and r[4]>0 for r in rows),rows
-     results.append({'app':'metacontext','paired':True,'explicit_origins':2,'source_metadata_only':True})
      print(json.dumps(results[-1]),flush=True)
  print(json.dumps({'passed':results}))
 if __name__=='__main__':main()

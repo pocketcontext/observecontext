@@ -20,7 +20,7 @@ The source needs buffer-capable PocketContext with `tracing.enabled: true` and `
 
 Use `--capture-sql` only when the uploader and authorized broad viewers may read SQL literals. Server capture also requires its `captureSql` setting. Headers, tokens, URL queries, REST bodies and response values are excluded. Capture supports only Python `urllib.request` in-process. Authenticated redirects are refused rather than forwarding source credentials. Existing client output and command exit status are preserved if telemetry fails.
 
-For metadata ingestion or another multi-origin script, use `--service metacontext.ingestion --origin metacontext.client=https://catalog.example.com --origin source.metadata=https://source.example.com --upload`. All measurements share one operation, with separate client service labels and origin-bound source credentials. Only the explicitly mapped API origins are traced; the ObserveContext destination is rejected.
+For a script calling multiple applications, use `--service workspace.report --origin crm.client=https://crm.example.com --origin tasks.client=https://tasks.example.com --upload`. All measurements share one operation, with separate client service labels and origin-bound source credentials. Only the explicitly mapped API origins are traced; the ObserveContext destination is rejected.
 
 ## Retry pending telemetry
 
