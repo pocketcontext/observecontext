@@ -11,5 +11,6 @@ routerAdd('GET','/api/dashboard/login',(e)=>require(`${__hooks}/dashboard.js`).h
 routerAdd('GET','/api/dashboard/session',(e)=>require(`${__hooks}/dashboard.js`).handle(e,'session'));
 routerAdd('GET','/api/dashboard/data',(e)=>require(`${__hooks}/dashboard.js`).handle(e,'data'));
 routerAdd('GET','/api/dashboard/report',(e)=>require(`${__hooks}/dashboard.js`).handle(e,'report'));
+routerAdd('GET','/api/dashboard/operation',(e)=>require(`${__hooks}/dashboard.js`).handle(e,'operation'));
 routerAdd('GET','/api/dashboard/trace',(e)=>require(`${__hooks}/dashboard.js`).handle(e,'trace'));
 routerAdd('POST','/api/dashboard/logout',(e)=>require(`${__hooks}/dashboard.js`).handle(e,'logout'));

@@ -7,22 +7,22 @@
 <main>
 <header><div><h1>ObserveContext</h1><p>One operation. Client and server timings together.</p></div><div id="account-actions" hidden><span id="account-name"></span><button id="logout" type="button">Sign out</button></div></header>
 <section id="signin" aria-labelledby="signin-title"><h2 id="signin-title">Your operations, in context</h2><p>Sign in with your Workspace Google account to inspect your request timings.</p><a class="button" href="/api/dashboard/login" id="login">Continue with Google</a><p id="login-status" role="status" aria-live="polite">Checking your session…</p></section>
-<div id="dashboard" hidden>
+<div id="dashboard" hidden><aside class="collection-sidebar" aria-label="Collection navigation"><label>Collection<select id="collection"><option value="operations">Operations</option><option value="traces">Traces</option></select></label><label>Search records<input id="filter" type="search" placeholder="Service, route or status" autocomplete="off"></label><p>Search all records you can access by ID, service, route, status or correlation.</p></aside><div class="dashboard-content">
 <div class="toolbar"><button id="refresh" type="button">Refresh</button></div>
 <div id="status" role="status" aria-live="polite">Loading operations…</div><div id="notice" class="error" role="alert"></div>
-<div class="cards" aria-label="Recent operation totals"><div class="card"><small>Recent operations</small><strong id="operation-count">—</strong></div><div class="card"><small>Client + server paired</small><strong id="paired-count">—</strong></div><div class="card"><small>Operations with errors</small><strong id="error-count">—</strong></div></div>
+<div class="cards" aria-label="Recent operation totals"><div class="card"><small id="collection-count-label">Operations on this page</small><strong id="operation-count">—</strong></div><div class="card"><small>Client + server paired</small><strong id="paired-count">—</strong></div><div class="card"><small>Operations with errors</small><strong id="error-count">—</strong></div></div>
 <section>
-<div class="section-heading"><div><h2>Recent operations</h2><p>Client and server measurements of each owned operation appear once. Times are Europe/Berlin. Refreshes every five seconds.</p></div><label>Filter operations<input id="filter" type="search" placeholder="Service, route or status" autocomplete="off"></label></div>
-<p id="window-note" class="muted"></p>
+<div class="section-heading"><div><h2 id="collection-title">Operations</h2><p>Client and server measurements of each owned operation appear once. Times are Europe/Berlin. Refreshes every five seconds.</p></div></div>
+<div class="toolbar"><button id="previous">Previous</button><button id="next">Next</button><button id="copy-search">Copy search link</button></div><p id="window-note" class="muted"></p>
 <div class="scroll recent-scroll"><table><thead><tr><th>Started</th><th>Operation</th><th>Client</th><th>Server</th><th>Status</th><th>Measurements</th><th>Details</th></tr></thead><tbody id="recent"></tbody></table></div><p id="empty" hidden>No matching operations.</p>
 </section>
 <section id="detail" hidden tabindex="-1">
-<h2 id="detail-title">Operation details</h2><p id="identity"></p>
+<button id="copy-record">Copy record link</button><h2 id="detail-title">Operation details</h2><p id="identity"></p>
 <div class="cards"><div class="card"><small>Client elapsed</small><strong id="client-time">—</strong></div><div class="card"><small>Server elapsed</small><strong id="server-time">—</strong></div><div class="card"><small>Client − server</small><strong id="difference">—</strong></div></div>
 <p id="timing-note"></p><h3>SQL</h3><pre id="sql"></pre><div id="measurements"></div>
 </section>
 <details class="panel" id="report-panel"><summary>Trace measurements · last 24 hours</summary><p>Each client or server trace is counted separately in this diagnostic summary. These are measurement counts, not operation counts.</p><p id="report-status" role="status"></p><div class="scroll"><table><thead><tr><th>Service / route</th><th>Measurements</th><th>Average</th><th>Maximum</th><th>Errors</th></tr></thead><tbody id="report"></tbody></table></div></details>
-</div>
+</div></div>
 </main>
 <script src="/dashboard/assets/dashboard.js" defer></script>
 </html>

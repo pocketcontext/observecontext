@@ -79,16 +79,32 @@ async function get(path,options={}){
   const data=r.status===204?{}:await r.json();if(epoch!==sessionEpoch)throw new SessionEnded();return data;
  }finally{requests.delete(controller)}
 }
-let operations=[],selected=null,detailVersion=0;
+let operations=[],selected=null,detailVersion=0,searchTimer,searchVersion=0;
+function navigation(){const [path,query='']=location.hash.replace(/^#\/?/,'').split('?');const params=new URLSearchParams(query);return {path,q:params.get('q')||'',offset:Math.max(0,Number(params.get('offset'))||0),collection:params.get('collection')==='traces'?'traces':'operations'};}
+function saveNavigation(path=navigation().path,replace=false){const params=new URLSearchParams();if($('collection').value==='traces')params.set('collection','traces');if($('filter').value)params.set('q',$('filter').value);if(navigation().offset)params.set('offset',navigation().offset);history[replace?'replaceState':'pushState'](null,'','#/'+path+(params.size?'?'+params:''));}
+async function openNavigation(){
+ const {path}=navigation();const match=/^(operations|traces)\/([a-z0-9]{15})$/.exec(path);
+ if(!match){selected=null;detailVersion++;$('detail').hidden=true;return;}
+ const version=++searchVersion;detailVersion++;$('detail').hidden=true;$('measurements').replaceChildren();$('sql').textContent='';
+ try{let traces,limited=false;
+ if(match[1]==='operations'){const data=await get('operation?id='+match[2]);if(!data.operation)throw Error('Record unavailable.');traces=data.recent;limited=data.recent_limited;}
+ else {const data=await get('trace?id='+match[2]);if(!data.trace)throw Error('Record unavailable.');traces=[{...data.trace,kind:data.spans.some(s=>s.name==='http.client')?'client':data.spans.some(s=>s.name==='auth')?'server':'unknown'}];}
+ if(version!==searchVersion||!authenticated)return;
+ const op=groupOperations(traces)[0];if(op){op.limited=limited;await showDetail(op,false);}else {$('detail').hidden=true;$('notice').textContent='This operation has no measurements.';}
+ }catch(error){if(version===searchVersion&&authenticated){$('detail').hidden=true;$('notice').textContent=error.message;}}
+}
+$('login').addEventListener('click',()=>{try{sessionStorage.setItem('observecontext.destination',location.hash);}catch{}});
+window.addEventListener('hashchange',()=>{if(authenticated){$('collection').value=navigation().collection;$('filter').value=navigation().q;void refresh();void openNavigation();}});
+
 function renderOperations(){
- const filter=$('filter').value.trim().toLowerCase();$('recent').replaceChildren();let visible=0;
+ const filter='';$('recent').replaceChildren();let visible=0;
  for(const op of operations){
   const searchable=op.traces.map(t=>[t.service,t.method,t.route,t.status,t.correlation_id].join(' ')).join(' ').toLowerCase();if(filter&&!searchable.includes(filter))continue;
   visible++;const tr=node('tr',undefined,op.key===selected?'selected':'');cell(tr,timestamp(op.started),'number');
   const operation=cell(tr,op.primary.method+' '+op.primary.route,'route');operation.append(node('span',op.service,'subline'));
   cell(tr,elapsed(op.clients),'number');cell(tr,elapsed(op.servers),'number');cell(tr,status(op),op.errors?'error':'');
   cell(tr,'').append(node('span',pairing(op),'badge'+(op.paired?' paired':'')));
-  const button=node('button','Inspect');button.type='button';button.setAttribute('aria-label','Inspect '+op.primary.method+' '+op.primary.route+' operation '+op.primary.request_id);button.onclick=()=>showDetail(op,true);cell(tr,'').append(button);$('recent').append(tr);
+  const button=node('button','Inspect');button.type='button';button.setAttribute('aria-label','Inspect '+op.primary.method+' '+op.primary.route+' operation '+op.primary.request_id);button.onclick=()=>{saveNavigation(navigation().collection==='traces'?'traces/'+op.primary.id:'operations/'+op.primary.operation);void showDetail(op,true);};cell(tr,'').append(button);$('recent').append(tr);
  }
  $('empty').hidden=visible!==0;$('operation-count').textContent=operations.length;$('paired-count').textContent=operations.filter(op=>op.paired).length;$('error-count').textContent=operations.filter(op=>op.errors).length;
 }
@@ -109,9 +125,11 @@ async function showDetail(op,focus=false){
   const sql=[...new Set(details.map(d=>d.trace.sql).filter(Boolean))];
   $('sql').textContent=sql.length===1?sql[0]:sql.length?'SQL differs between measurements; see each measurement below.':'SQL text was not captured.';
   $('measurements').replaceChildren();
-  if(op.traces.length>20)$('measurements').append(node('p','Showing 20 of '+op.traces.length+' measurements. Use SQL to inspect the full operation.'));
+  if(op.traces.length>20||op.limited)$('measurements').append(node('p','Showing '+Math.min(20,op.traces.length)+' of '+(op.limited?'at least ':'')+op.traces.length+' measurements. Use the Traces collection and search this operation ID to browse all measurements.'));
   details.forEach((d,i)=>{
    const t=d.trace;const kind=role(op.traces[i]);const article=node('article',undefined,'measurement');
+   const link=node('a','Permanent trace link');link.href='#/traces/'+t.id;article.append(link);
+   const parent=node('a','Parent operation');parent.href='#/operations/'+t.operation;article.append(node('span',' · '),parent);
    article.append(node('h3',(kind==='client'?'Client':kind==='server'?'Server':'Unclassified')+' · '+t.service+' · '+ms(t.duration_ms)));
    article.append(node('p',t.method+' '+t.route+' · '+(t.status===0?'Transport error':'HTTP '+t.status),'muted'));
    if(sql.length>1&&t.sql)article.append(node('pre',t.sql));
@@ -135,22 +153,26 @@ async function refreshReport(force=false){
  finally{reportLoading=false}
 }
 async function refresh(manual=false){
- if(!authenticated||document.hidden||loading)return;loading=true;$('refresh').disabled=true;
+ if(!authenticated||document.hidden||loading)return;loading=true;const requestedHash=location.hash;$('refresh').disabled=true;
  try{
-  const d=await get('data');operations=groupOperations(d.recent);renderOperations();
-  $('window-note').textContent=d.recent_limited?'Measurement limit reached; some operations may be incomplete.':'Latest 50 operations visible to your account. Unpaired measurements remain visible.';
+  const params=new URLSearchParams();if(navigation().collection==='traces')params.set('collection','traces');if(navigation().q)params.set('q',navigation().q);if(navigation().offset)params.set('offset',navigation().offset);
+  const d=await get('data'+(params.size?'?'+params:''));if(requestedHash!==location.hash)return;operations=navigation().collection==='traces'?d.recent.map(t=>({...groupOperations([t])[0],key:'trace:'+t.id})):groupOperations(d.recent);renderOperations();
+  $('collection-title').textContent=navigation().collection==='traces'?'Traces':'Operations';$('collection-count-label').textContent=navigation().collection==='traces'?'Traces on this page':'Operations on this page';
+  $('window-note').textContent=d.recent_limited?'Measurement limit reached; some operations may be incomplete.':'Up to 50 '+navigation().collection+' on this page. Use search or Next to find older records.';
   $('status').textContent=operations.length?'Updated '+timestamp(new Date()):'No operations yet. Capture a request to see its timings.';$('notice').textContent='';
-  // Details are fetched only when requested. Clear selection if it leaves this window.
-  if(selected&&!operations.some(op=>op.key===selected)){$('detail').hidden=true;$('measurements').replaceChildren();$('sql').textContent='';selected=null;detailVersion++;}
+  $('previous').disabled=navigation().offset===0;$('next').disabled=operations.length<50;
+  // A permanent selection remains available outside the current search window.
   if(manual)await refreshReport(true);
  }catch(e){if(authenticated&&!(e instanceof SessionEnded)){$('notice').textContent=e.message;$('status').textContent='Refresh failed; showing the last loaded data.'}}
- finally{loading=false;$('refresh').disabled=false}
+ finally{loading=false;$('refresh').disabled=false;if(authenticated&&requestedHash!==location.hash)void refresh();}
 }
 async function init(){
  try{
   const data=await get('session');if(!data.user){clearSession();return;}
   authenticated=true;csrf=data.csrf||'';pendingLogoutCsrf='';$('signin').hidden=true;$('dashboard').hidden=false;$('account-actions').hidden=false;
-  $('account-name').textContent=data.user.name||data.user.email||'Signed in';await refresh();
+  $('account-name').textContent=data.user.name||data.user.email||'Signed in';
+  try{const saved=sessionStorage.getItem('observecontext.destination');sessionStorage.removeItem('observecontext.destination');if(!location.hash&&saved&&/^#\//.test(saved))history.replaceState(null,'',saved);}catch{}
+  $('collection').value=navigation().collection;$('filter').value=navigation().q;await refresh();await openNavigation();
  }catch(e){if(!(e instanceof SessionEnded))clearSession('Cannot check your session. Reload to try again.')}
 }
 async function logout(){
@@ -163,7 +185,12 @@ async function logout(){
  }catch(e){$('login-status').textContent='Sign-out could not be confirmed. Please retry.';$('account-actions').hidden=false;$('logout').textContent='Retry sign out';}
  finally{$('logout').disabled=false;}
 }
-$('refresh').onclick=()=>refresh(true);$('logout').onclick=logout;$('filter').oninput=renderOperations;
+$('refresh').onclick=()=>refresh(true);$('logout').onclick=logout;$('filter').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{const params=new URLSearchParams();if($('collection').value==='traces')params.set('collection','traces');if($('filter').value)params.set('q',$('filter').value);history.replaceState(null,'','#/'+navigation().path+(params.size?'?'+params:''));void refresh(true);},250);};
+$('collection').onchange=()=>{const params=new URLSearchParams();params.set('collection',$('collection').value);if($('filter').value)params.set('q',$('filter').value);location.hash='#/?'+params;};
+$('previous').onclick=()=>{const params=new URLSearchParams();params.set('collection',$('collection').value);params.set('q',$('filter').value);params.set('offset',Math.max(0,navigation().offset-50));location.hash='#/'+navigation().path+'?'+params;};
+$('next').onclick=()=>{const params=new URLSearchParams();params.set('collection',$('collection').value);params.set('q',$('filter').value);params.set('offset',navigation().offset+50);location.hash='#/'+navigation().path+'?'+params;};
+$('copy-record').onclick=()=>void navigator.clipboard.writeText(new URL('#/'+navigation().path,location.href).href).catch(()=>$('notice').textContent='Unable to copy link.');
+$('copy-search').onclick=()=>{const params=new URLSearchParams();if(navigation().offset)params.set('offset',navigation().offset);if($('collection').value==='traces')params.set('collection','traces');if($('filter').value)params.set('q',$('filter').value);void navigator.clipboard.writeText(new URL('#/?'+params,location.href).href).catch(()=>$('notice').textContent='Unable to copy link.');};
 $('report-panel').addEventListener('toggle',()=>refreshReport());
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){refresh();refreshReport();}});
 window.addEventListener('pagehide',()=>clearSession());

@@ -27,6 +27,41 @@ const { chromium } = require(process.argv[2]);
     if (!(await page.locator('#identity').textContent()).includes('14:00:00.000')) throw Error('Berlin timezone missing');
     if (!(await page.locator('#measurements').textContent()).includes('sql.execute')) throw Error('Phase missing');
     if (!(await page.locator('#detail').evaluate(node => node === document.activeElement))) throw Error('Inspect did not focus detail');
+    const operationURL = page.url();
+    if (!operationURL.includes('#/operations/')) throw Error('Operation permalink missing');
+    await page.reload();
+    await page.locator('#detail').waitFor({state:'visible'});
+    await page.getByRole('link',{name:'Permanent trace link',exact:true}).first().click();
+    await page.waitForURL(/#\/traces\/[a-z0-9]{15}$/);
+    await page.locator('#detail').waitFor({state:'visible'});
+    await page.goBack();
+    await page.locator('#detail').waitFor({state:'visible'});
+    if(page.url()!==operationURL)throw Error('History did not restore operation');
+    await page.locator('#collection').selectOption('traces');
+    await page.getByRole('button',{name:/^Inspect /}).first().waitFor();
+    await page.locator('#filter').fill('missing-fixture');
+    await page.locator('#empty').waitFor({state:'visible'});
+    await page.locator('#filter').fill('');
+    await page.locator('#collection').selectOption('operations');
+    await page.getByRole('button',{name:/^Inspect /}).first().click();
+    await page.locator('#detail').waitFor({state:'visible'});
+    const fixture=await page.evaluate(async()=>{const response=await fetch('/api/dashboard/data');return (await response.json()).recent[0];});
+    await page.route('**/api/dashboard/data?*',async route=>{
+      const url=new URL(route.request().url());
+      if(url.searchParams.get('collection')!=='traces')return route.continue();
+      const offset=Number(url.searchParams.get('offset')||0);
+      const recent=Array.from({length:offset?1:50},(_,i)=>({...fixture,id:String(offset+i+1).padStart(15,'0')}));
+      await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({recent,recent_limited:false})});
+    });
+    await page.locator('#collection').selectOption('traces');
+    await page.waitForFunction(()=>document.querySelectorAll('#recent tr').length===50);
+    if(await page.locator('#next').isDisabled())throw Error('Shared operation lost trace pagination');
+    await page.locator('#next').click();
+    await page.waitForFunction(()=>document.querySelectorAll('#recent tr').length===1);
+    await page.unroute('**/api/dashboard/data?*');
+    await page.locator('#collection').selectOption('operations');
+    await page.getByRole('button',{name:/^Inspect /}).first().click();
+    await page.locator('#detail').waitFor({state:'visible'});
     // Check actual rendered geometry, not only SVG attributes: phases share one
     // trace-relative scale, including overlap, gaps and a zero-duration endpoint.
     async function checkTimeline() {

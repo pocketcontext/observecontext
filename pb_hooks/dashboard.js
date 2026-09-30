@@ -131,7 +131,19 @@ function handle(e,kind,parameters) {
       if(e.request.header.get('Origin') !== cfg.origin || !$security.equal(e.request.header.get('X-CSRF-Token'),active.entry.csrf)) fail(403);
       remove(e.app,'sessions',active.id); cookie(e,cfg,'session','',-1); return e.json(200,{ok:true});
     }
-    if(kind === 'data') { const recent=query(cfg,active,RECENT_SQL); return e.json(200,{recent,recent_limited:recent.length>=500}); }
+    if(kind === 'operation') {
+      const id=e.request.url.query().get('id'); if(!/^[a-z0-9]{15}$/.test(id)) fail(400);
+      const operations=query(cfg,active,"SELECT id,source,correlation_id,created FROM operations WHERE id='"+id+"' LIMIT 1");
+      const recent=operations.length?query(cfg,active,RECENT_SQL.replace('FROM traces GROUP BY operation',"FROM traces WHERE operation='"+id+"' GROUP BY operation")):[];
+      return e.json(200,{operation:operations[0] || null,recent,recent_limited:recent.length>=500});
+    }
+    if(kind === 'data') {
+      const params=e.request.url.query(), term=String(params.get('q')||'').slice(0,500).replace(/'/g,"''"), offset=Number(params.get('offset')||0);
+      if(!Number.isInteger(offset)||offset<0||offset>100000)fail(400);
+      const where=term?" WHERE instr(lower(id||' '||operation||' '||service||' '||route||' '||request_id||' '||correlation_id||' '||status),lower('"+term+"'))>0 ":' ';
+      let sql=RECENT_SQL.replace('FROM traces GROUP BY operation','FROM traces'+where+'GROUP BY operation').replace('LIMIT 50\n','LIMIT 50 OFFSET '+offset+'\n');
+      if(params.get('collection')==='traces'){sql='WITH selected AS (SELECT id,operation,service,request_id,correlation_id,method,route,started_at,duration_ms,status FROM traces'+where+'ORDER BY started_at DESC,id DESC LIMIT 50 OFFSET '+offset+'), kinds AS ('+RECENT_SQL.split('), kinds AS (')[1];}
+      const recent=query(cfg,active,sql); return e.json(200,{recent,recent_limited:recent.length>=500}); }
     if(kind === 'report') return e.json(200,{report:query(cfg,active,REPORT_SQL)});
     if(kind === 'trace') {
       const id=e.request.url.query().get('id'); if(!/^[a-z0-9]{15}$/.test(id)) fail(400);

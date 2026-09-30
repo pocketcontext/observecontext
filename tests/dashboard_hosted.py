@@ -238,6 +238,18 @@ def main():
         bob, bob_session = login('bob@example.com')
         data, _ = alice.json(api + 'data')
         assert {row['id'] for row in data['recent']} == {traces[0]['id']}
+        owned_operation = traces[0]['operation']
+        direct, _ = alice.json(api + 'operation?id=' + owned_operation)
+        assert direct['operation']['id'] == owned_operation and direct['recent'][0]['id'] == traces[0]['id']
+        denied, _ = alice.json(api + 'operation?id=' + traces[1]['operation'])
+        assert denied['operation'] is None and denied['recent'] == []
+        alice.request(api + 'operation?id=' + urllib.parse.quote("' OR 1=1 --"), expected=400)
+        filtered, _ = alice.json(api + 'data?collection=traces&q=' + traces[0]['request_id'])
+        assert [row['id'] for row in filtered['recent']] == [traces[0]['id']]
+        absent, _ = alice.json(api + 'data?q=missing-fixture')
+        assert absent['recent'] == []
+        next_page, _ = alice.json(api + 'data?offset=50')
+        assert next_page['recent'] == []
         detail, _ = alice.json(api + 'trace?id=' + traces[0]['id'])
         assert detail['trace']['sql'] == marker and detail['spans']
         raw, fields = alice.request(api + 'trace?id=' + traces[1]['id'], expected=(200,404))

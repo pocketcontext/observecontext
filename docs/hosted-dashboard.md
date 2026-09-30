@@ -90,3 +90,28 @@ python3 tests/dashboard_hosted.py --binary /absolute/path/to/pinned/pocketcontex
 Browser checks and the application/container/restore suites gate image publication.
 Live Google consent requires an interactive user's browser; synthetic OAuth tests
 do not claim to verify that external account interaction.
+
+## Record navigation
+
+The left sidebar selects Operations or Traces and searches IDs, service, route,
+status and correlation values across the viewer's authorized records. Search and
+page offset are kept in the URL. Each trace remains a separate row in the Traces
+collection, including when many traces share an operation. Permanent
+`/dashboard#/operations/<id>` and `/dashboard#/traces/<id>` URLs resolve directly,
+independent of the recent list. Trace details link to their parent operation.
+Copy record link omits filters; Copy search link preserves collection, text and
+page offset. A pending destination survives Google sign-in in per-tab storage;
+no authentication tokens are stored there.
+
+Operation detail is bounded to 500 trace summaries and 20 detailed measurements;
+the UI reports the bound and directs readers to search the operation ID in Traces
+for complete paginated browsing. Sources and correlation values remain diagnostic
+metadata and never grant visibility. Opening a link performs authenticated reads.
+
+The 30 September 2026 navigation change passed all mandatory README Python
+validation commands on the unchanged a92b0de pin. The actual hosted browser suite
+covered operation/trace reload and history, collection search, 51 traces sharing
+one operation across two pages, mobile geometry, keyboard access, literal SQL,
+CSP, token isolation and session revocation. The authenticated endpoint tests
+covered cross-owner denial, malformed IDs, search and offsets. Container gates
+remain required in release CI.
