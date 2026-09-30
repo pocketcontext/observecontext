@@ -1,3 +1,4 @@
+import PocketBase, { BaseAuthStore } from './pocketbase.es.mjs';
 import { pb, renew, view } from './api.js';
 const $=id=>document.getElementById(id);
 const ms=n=>Number(n).toFixed(2)+' ms';
@@ -97,17 +98,16 @@ async function openNavigation(){
  const op=groupOperations(traces)[0];if(op){op.limited=limited;await showDetail(op,false);}else {$('detail').hidden=true;$('notice').textContent='This operation has no measurements.';}
  }catch(error){if(version===searchVersion&&authenticated){$('detail').hidden=true;$('notice').textContent=error.message;}}
 }
-$('login').addEventListener('click',async()=>{
+$('login').addEventListener('click',()=>{
  $('login').disabled=true;
  const epoch=sessionEpoch,token=pb.authStore.token;
- try{
-  // Separate store prevents a delayed popup completing after a different login.
-  const {default:PocketBase,BaseAuthStore}=await import('./pocketbase.es.mjs');
-  const login=new PocketBase(location.origin,new BaseAuthStore());
-  const auth=await login.collection('users').authWithOAuth2({provider:'google'});
+ // Start synchronously so the SDK opens its OAuth popup within the user gesture.
+ // Separate store prevents a delayed popup completing after a different login.
+ const login=new PocketBase(location.origin,new BaseAuthStore());
+ void login.collection('users').authWithOAuth2({provider:'google'}).then(auth=>{
   if(epoch===sessionEpoch&&token===pb.authStore.token)pb.authStore.save(auth.token,auth.record);
- }catch{if(epoch===sessionEpoch)$('login-status').textContent='Sign-in failed. Please try again.';}
- finally{$('login').disabled=false;}
+ }).catch(()=>{if(epoch===sessionEpoch)$('login-status').textContent='Sign-in failed. Please try again.';})
+ .finally(()=>{$('login').disabled=false;});
 });
 window.addEventListener('hashchange',()=>{if(authenticated){$('collection').value=navigation().collection;$('filter').value=navigation().q;void refresh();void openNavigation();}});
 
