@@ -69,7 +69,7 @@ function clearSession(message='Sign in to view your operations.'){
  for(const id of ['identity','sql','detail-title','notice','status','window-note','report-status','account-name','timing-note'])$(id).textContent='';
  for(const id of ['operation-count','paired-count','error-count','client-time','server-time','difference'])$(id).textContent='—';
  $('filter').value='';$('detail').hidden=true;$('dashboard').hidden=true;$('account-actions').hidden=true;
- $('report-panel').open=false;$('signin').hidden=false;$('login-status').textContent=message;
+ $('report-panel').open=false;$('signin').hidden=false;$('login').disabled=false;$('login-status').textContent=message;
 }
 async function get(path,options={}){
  const epoch=sessionEpoch,identity=authIdentity(),token=pb.authStore.token,controller=new AbortController();requests.add(controller);

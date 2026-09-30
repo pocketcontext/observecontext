@@ -9,8 +9,18 @@ const {chromium}=require(process.argv[2]);
   const page=await context.newPage(),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   await page.addInitScript(()=>{window.__cspViolations=[];document.addEventListener('securitypolicyviolation',e=>window.__cspViolations.push(e.violatedDirective));});
-  await page.goto(config.url+'#/traces/'+config.alice.record.id);
+  // A deferred module (including CDN script optimization) must not expose an
+  // enabled sign-in button before its click listener has been installed.
+  let releaseModule;
+  const moduleGate=new Promise(resolve=>{releaseModule=resolve;});
+  await page.route('**/dashboard/assets/dashboard.js',async route=>{await moduleGate;await route.continue();});
+  await page.goto(config.url+'#/traces/'+config.alice.record.id,{waitUntil:'commit'});
   await page.locator('#signin').waitFor({state:'visible'});
+  if(!await page.locator('#login').isDisabled())throw Error('Sign-in enabled before module initialization');
+  if(!await page.locator('#login-status').textContent().then(text=>text.includes('Checking')))throw Error('Initialization status missing');
+  releaseModule();
+  await page.waitForFunction(()=>!document.querySelector('#login').disabled);
+  await page.unroute('**/dashboard/assets/dashboard.js');
   // Stock SDK OAuth uses its realtime channel and stock callback, not a proxy.
   const popup=context.waitForEvent('page');
   await page.locator('#login').click();
