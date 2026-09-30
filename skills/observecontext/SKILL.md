@@ -22,3 +22,7 @@ Explain measured boundaries: client HTTP elapsed time includes response consumpt
 ## Hosted dashboard
 
 Open the configured ObserveContext server's root URL for the authenticated hosted dashboard. Each viewer signs in with their own Workspace Google identity and receives their own trace visibility. Hosted browser sessions and CLI authentication are separate. API bearer tokens stay on the server; the browser receives an opaque HttpOnly session cookie. No localhost process or SSH port forwarding is needed for the hosted dashboard. The `dashboard` command remains an optional personal loopback view.
+
+## Browser links
+
+When reporting measured evidence, use the configured `OBSERVECONTEXT_URL` origin (without its trailing slash) plus `/dashboard#/operations/<operation-id>` or `/dashboard#/traces/<trace-record-id>`. A trace record ID is distinct from its producer `request_id`; query the actual record identity. Individual traces are immutable, while more measurements can join an operation. There is no operation snapshot URL. Links preserve the viewer's existing ownership/read-all permissions and never grant access; correlation IDs do not confer ownership. Never include credentials, private loopback dashboard keys or captured SQL text in the URL.
