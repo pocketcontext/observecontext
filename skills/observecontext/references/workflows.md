@@ -32,7 +32,7 @@ The private queue is account-bound and capped at 16 MiB. It contains completed e
 
 ## Legacy file import
 
-`capture --output /private/client.jsonl SOURCE_SCRIPT ...` retains the old client JSONL path without requesting buffer traces. `ingest /private/server.jsonl --follow` is available for explicitly authorized server file collection; it reads active and `.1` files. Missing operation links receive deterministic owner-scoped legacy import operations. Conflicting IDs or malformed lines stop collection; source rotation may lose data. This mode is optional and separate from normal `--upload`.
+`capture --output /private/client.jsonl -- SOURCE_COMMAND ...` writes client JSONL without requesting buffer traces. The command must activate the tracing library, just as for upload mode. `ingest /private/server.jsonl --follow` is available for explicitly authorized server file collection; it reads active and `.1` files. Missing operation links receive deterministic owner-scoped legacy import operations. Conflicting IDs or malformed lines stop collection; source rotation may lose data. This mode is optional and separate from normal `--upload`.
 
 ## Dashboard
 
