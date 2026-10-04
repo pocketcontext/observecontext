@@ -15,6 +15,7 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--binary',required=True)
     parser.add_argument('--write-schema',action='store_true')
+    parser.add_argument('--client',type=Path,help='exercise an unchanged published launcher instead of a local test wheel')
     args=parser.parse_args()
     with server(args.binary) as request, tempfile.TemporaryDirectory(prefix='observecontext-skill-') as tmp:
         admin=request('POST','/api/collections/_superusers/auth-with-password',{'identity':'admin@example.com','password':'SyntheticAdminPassword123!'})['token']
@@ -30,11 +31,14 @@ def main():
         assert json.loads(snapshot.read_text())==schema,'Schema changed; review and regenerate snapshot'
         skill=Path(tmp)/'portable'
         skill.mkdir()
-        subprocess.run(['uv','build','--wheel','--out-dir',str(Path(tmp)/'dist')],cwd=ROOT,check=True,capture_output=True)
-        wheel=next((Path(tmp)/'dist').glob('*.whl'))
         launcher=skill/'observecontext'
-        source=(ROOT/'skills/observecontext/observecontext').read_text()
-        source=re.sub(r'# observecontext-client = .*', '# observecontext-client = { path = '+json.dumps(str(wheel))+' }', source)
+        if args.client:
+            source=args.client.resolve().read_text()
+        else:
+            subprocess.run(['uv','build','--wheel','--out-dir',str(Path(tmp)/'dist')],cwd=ROOT,check=True,capture_output=True)
+            wheel=next((Path(tmp)/'dist').glob('*.whl'))
+            source=(ROOT/'skills/observecontext/observecontext').read_text()
+            source=re.sub(r'# observecontext-client = .*', '# observecontext-client = { path = '+json.dumps(str(wheel))+' }', source)
         launcher.write_text(source);launcher.chmod(0o755)
         env={**os.environ,'UV_NO_CONFIG':'1','UV_CACHE_DIR':str(Path(tmp)/'uv-cache'),'XDG_CACHE_HOME':str(Path(tmp)/'cache'),'OBSERVECONTEXT_URL':request.base_url,'OBSERVECONTEXT_USER_EMAIL':'skill@example.com','OBSERVECONTEXT_USER_PASSWORD':password}
         def cli(*argv,expected=0):
