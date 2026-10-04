@@ -45,23 +45,26 @@ def main():
             with http.server.ThreadingHTTPServer(('127.0.0.1',0),Proxy) as proxy:
                 worker=threading.Thread(target=proxy.serve_forever,daemon=True);worker.start()
                 try:
-                    env={**os.environ,'XDG_CACHE_HOME':str(tmp/'cache'),'OBSERVECONTEXT_URL':f'http://127.0.0.1:{proxy.server_port}',
+                    env={**os.environ,'PYTHONPATH':str(ROOT/'src'),'XDG_CACHE_HOME':str(tmp/'cache'),'OBSERVECONTEXT_URL':f'http://127.0.0.1:{proxy.server_port}',
                          'OBSERVECONTEXT_USER_EMAIL':'one@example.test','OBSERVECONTEXT_USER_PASSWORD':'SyntheticUserPassword123!',
                          'SOURCE_URL':source.base_url,'SOURCE_TOKEN':identities[0]}
-                    cli=ROOT/'skills/observecontext/scripts/oc.py'
+                    cli=ROOT/'src/observecontext_client/cli.py'
                     def command(*argv,expected=0):
-                        result=subprocess.run(['python3',str(cli),*argv],env=env,text=True,capture_output=True)
+                        result=subprocess.run(['python3','-m','observecontext_client',*argv],env=env,text=True,capture_output=True)
                         assert result.returncode==expected,(argv,result.stdout,result.stderr)
                         for secret in [identities[0],identities[1],env['OBSERVECONTEXT_USER_PASSWORD']]:assert secret not in result.stdout+result.stderr
                         return result
                     command('whoami')
                     script=tmp/'client.py';script.write_text('''import json,os,sys,urllib.request,urllib.error
+from observecontext_client.instrumentation import instrument_cli
+with instrument_cli(service='skill.client'):
+ exec(''' + repr('''import json,os,sys,urllib.request,urllib.error
 for path,body in [('/api/context/query',{'sql':'SELECT 42 AS synthetic'}),('/api/collections/operations/records',{'source':'synthetic-write'})]:
  request=urllib.request.Request(os.environ['SOURCE_URL']+path,data=json.dumps(body).encode(),headers={'Authorization':os.environ['SOURCE_TOKEN'],'Content-Type':'application/json'})
  with urllib.request.urlopen(request) as response:response.read()
 sys.exit(int(os.environ.get('SOURCE_EXIT','0')))
-''')
-                    capture=['capture','--url',source.base_url,'--service','skill.client','--upload','--capture-sql',str(script)]
+''') + ')\n')
+                    capture=['capture','--url',source.base_url,'--service','skill.client','--upload','--capture-sql','--','python3',str(script)]
                     result=command(*capture)
                     assert 'delivered 2' in result.stderr,result.stderr
                     token=identities[1]

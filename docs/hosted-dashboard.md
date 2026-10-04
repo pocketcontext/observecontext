@@ -3,7 +3,7 @@
 ObserveContext serves its dashboard at the application root, including
 `https://observe.pocketcontext.com/`. Sign in with your own Workspace Google account.
 The browser session is separate from the CLI token cache; no local Python process,
-SSH forwarding or public tunnel is needed. The personal `oc.py dashboard` remains
+SSH forwarding or public tunnel is needed. The personal `observecontext dashboard` remains
 an optional loopback-only view.
 
 ## Authentication and visibility

@@ -1,6 +1,6 @@
 # SQL examples
 
-Run with `oc.py query SQL`; use `query -` to read SQL from stdin. Limit time windows and page with stable ordering for large datasets. Check the response's truncation flag.
+Run with `observecontext query SQL`; use `query -` to read SQL from stdin. Limit time windows and page with stable ordering for large datasets. Check the response's truncation flag.
 
 Slowest recent requests:
 

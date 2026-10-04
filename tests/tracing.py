@@ -16,7 +16,7 @@ from integration import ROOT, server
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--binary',required=True);args=parser.parse_args()
     binary=str(Path(args.binary).resolve())
-    cli=ROOT/'skills/observecontext/scripts/oc.py'
+    cli=ROOT/'src/observecontext_client/cli.py'
     with tempfile.TemporaryDirectory(prefix='observecontext-tracing-') as tmp, server(binary) as destination:
         temp=Path(tmp)
         config=json.loads((ROOT/'pocketcontext.json').read_text())
@@ -45,10 +45,17 @@ def main():
                 for request in [source,destination]:
                     admin=request('POST','/api/collections/_superusers/auth-with-password',{'identity':'admin@example.com','password':'SyntheticAdminPassword123!'})['token']
                     request('POST','/api/collections/users/records',{'email':'skill@example.com','name':'Synthetic tracing','password':'SyntheticSkillPassword123!','passwordConfirm':'SyntheticSkillPassword123!'},admin)
-                env={**os.environ,'XDG_CACHE_HOME':str(temp/'cache'),'OBSERVECONTEXT_URL':base,'OBSERVECONTEXT_USER_EMAIL':'skill@example.com','OBSERVECONTEXT_USER_PASSWORD':'SyntheticSkillPassword123!'}
+                env={**os.environ,'PYTHONPATH':str(ROOT/'src'),'XDG_CACHE_HOME':str(temp/'cache'),'OBSERVECONTEXT_URL':base,'OBSERVECONTEXT_USER_EMAIL':'skill@example.com','OBSERVECONTEXT_USER_PASSWORD':'SyntheticSkillPassword123!'}
                 captured=temp/'client.jsonl'
-                # Capture an unmodified standard-library skill client. Authentication is excluded.
-                result=subprocess.run(['python3',str(cli),'capture','--url',base,'--service','synthetic-client','--output',str(captured),'--capture-sql',str(cli),'query','SELECT count(id) FROM traces'],env=env,capture_output=True,text=True)
+                # Synthetic source uses the same explicit hook as packaged apps.
+                script=temp/'source_client.py'
+                script.write_text('''import json,os,urllib.request
+from observecontext_client.instrumentation import instrument_cli
+from observecontext_client import cli
+with instrument_cli(service='synthetic-client'):
+ cli.main()
+''')
+                result=subprocess.run(['python3','-m','observecontext_client','capture','--url',base,'--service','synthetic-client','--output',str(captured),'--capture-sql','--','python3',str(script),'query','SELECT count(id) FROM traces'],env=env,capture_output=True,text=True)
                 assert result.returncode==0,result.stdout+result.stderr
                 clients=[json.loads(line) for line in captured.read_text().splitlines()]
                 assert len(clients)==1 and clients[0]['route']=='/api/context/query'
@@ -66,7 +73,7 @@ def main():
                 assert 'SyntheticSkillPassword' not in spool.read_text()+captured.read_text()
                 env['OBSERVECONTEXT_URL']=destination.base_url
                 def command(*parts):
-                    result=subprocess.run(['python3',str(cli),*parts],env=env,capture_output=True,text=True)
+                    result=subprocess.run(['python3','-m','observecontext_client',*parts],env=env,capture_output=True,text=True)
                     assert result.returncode==0,result.stdout+result.stderr
                     return json.loads(result.stdout)
                 assert command('ingest',str(spool))['inserted']>=1

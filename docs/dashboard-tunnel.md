@@ -40,7 +40,7 @@ remotely managed tunnel configuration must preserve these per-ingress settings.
 Keep tunnel credentials/configuration and the dashboard's random URL private.
 
 ```sh
-python3 skills/observecontext/scripts/oc.py dashboard \
+./skills/observecontext/observecontext dashboard \
   --public-origin https://observe-dev.example.com
 cloudflared tunnel --config /private/test/config/tunnel.yml ingress validate
 cloudflared tunnel --config /private/test/config/tunnel.yml run

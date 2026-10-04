@@ -49,9 +49,9 @@ class Response:
     def __getattr__(self, name):
         return getattr(self.response, name)
 
-    def read(self, amount=-1):
+    def read(self, amount=None):
         try:
-            data = self.response.read(amount)
+            data = self.response.read(None if amount is None or amount < 0 else amount)
             if amount is None or amount < 0 or not data:
                 self.finish()
             return data
@@ -250,9 +250,9 @@ def capture_session(args):
             server_request_id = error.headers.get('X-Context-Request-Id')
             # Preserve HTTPError identity, while including its body consumption.
             read, close = error.read, error.close
-            def error_read(amount=-1):
+            def error_read(amount=None):
                 try:
-                    data = read(amount)
+                    data = read(None if amount is None or amount < 0 else amount)
                     if amount is None or amount < 0 or not data:
                         finish()
                     return data
@@ -291,6 +291,7 @@ def capture_session(args):
 def run(args):
     """Launch an executable with a versioned, nonsecret opt-in descriptor."""
     import subprocess
+    import signal
     import tempfile
     from .instrumentation import CONFIG_ENV, configuration
     payload = dict(version=1, url=args.url, origin=args.origin or [], service=args.service,
@@ -305,15 +306,44 @@ def run(args):
         env = dict(os.environ, **{CONFIG_ENV: raw})
         # Inherit streams: prompts, binary output and terminal behavior survive.
         process = subprocess.Popen([args.executable, *args.arguments], env=env)
+        handlers = {}
+        termination_deadline = None
+        def forward(signum, frame):
+            nonlocal termination_deadline
+            if process.poll() is None:
+                process.send_signal(signum)
+                if termination_deadline is None:
+                    termination_deadline = time.monotonic() + 5
         try:
-            code = process.wait()
-        except KeyboardInterrupt:
+            for signum in (signal.SIGTERM, signal.SIGHUP):
+                handlers[signum] = signal.signal(signum, forward)
             try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                process.terminate()
-                process.wait()
-            code = -2
+                while True:
+                    try:
+                        code = process.wait(timeout=.2)
+                        break
+                    except subprocess.TimeoutExpired:
+                        if termination_deadline is not None and time.monotonic() >= termination_deadline:
+                            process.kill()
+                            code = process.wait()
+                            break
+            except KeyboardInterrupt:
+                # Terminal SIGINT reaches both processes; an explicit signal to
+                # this runner alone must also reach the command.
+                forward(signal.SIGINT, None)
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                code = -2
+        finally:
+            for signum, handler in handlers.items():
+                signal.signal(signum, handler)
         try:
             active = status.is_file() and status.stat().st_size <= 4096 and any(
                 json.loads(line) == {"version": 1, "active": True}

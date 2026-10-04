@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import re
 import subprocess
 import tempfile
 from integration import ROOT, server, fixture
@@ -22,15 +23,24 @@ def main():
         token=request('POST','/api/collections/users/auth-with-password',{'identity':'skill@example.com','password':password})['token']
         schema=request('GET','/api/context/schema',token=token)
         snapshot=ROOT/'skills/observecontext/references/schema.json'
-        if args.write_schema: snapshot.write_text(json.dumps(schema,indent=2)+'\n')
+        if args.write_schema:
+            snapshot.write_text(json.dumps(schema,indent=2)+'\n')
+            (ROOT/'src/observecontext_client/schema.json').write_text(snapshot.read_text())
+        assert json.loads((ROOT/'src/observecontext_client/schema.json').read_text())==schema
         assert json.loads(snapshot.read_text())==schema,'Schema changed; review and regenerate snapshot'
         skill=Path(tmp)/'portable'
-        shutil.copytree(ROOT/'skills/observecontext',skill)
-        env={**os.environ,'HOME':tmp,'XDG_CACHE_HOME':str(Path(tmp)/'cache'),'OBSERVECONTEXT_URL':request.base_url,'OBSERVECONTEXT_USER_EMAIL':'skill@example.com','OBSERVECONTEXT_USER_PASSWORD':password}
+        skill.mkdir()
+        subprocess.run(['uv','build','--wheel','--out-dir',str(Path(tmp)/'dist')],cwd=ROOT,check=True,capture_output=True)
+        wheel=next((Path(tmp)/'dist').glob('*.whl'))
+        launcher=skill/'observecontext'
+        source=(ROOT/'skills/observecontext/observecontext').read_text()
+        source=re.sub(r'# observecontext-client = .*', '# observecontext-client = { path = '+json.dumps(str(wheel))+' }', source)
+        launcher.write_text(source);launcher.chmod(0o755)
+        env={**os.environ,'UV_NO_CONFIG':'1','UV_CACHE_DIR':str(Path(tmp)/'uv-cache'),'XDG_CACHE_HOME':str(Path(tmp)/'cache'),'OBSERVECONTEXT_URL':request.base_url,'OBSERVECONTEXT_USER_EMAIL':'skill@example.com','OBSERVECONTEXT_USER_PASSWORD':password}
         def cli(*argv,expected=0):
-            result=subprocess.run(['python3',str(skill/'scripts/oc.py'),*argv],env=env,cwd=tmp,capture_output=True,text=True)
+            result=subprocess.run(['uv','run','--script',str(launcher),*argv],env=env,cwd=tmp,capture_output=True,text=True)
             assert password not in result.stdout+result.stderr and token not in result.stdout+result.stderr
-            assert result.returncode==expected,(argv,result.stdout,result.stderr)
+            assert result.returncode==expected,(argv,result.returncode,result.stdout,result.stderr)
             return result.stdout
         cli('whoami');cli('check')
         source=Path(tmp)/'events.jsonl'

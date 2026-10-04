@@ -77,6 +77,33 @@ with instrument_cli(service='test.client'):
             finally:
                 server.shutdown();worker.join()
 
+    def check_termination(self, ignore=False):
+        import signal
+        import time
+        with tempfile.TemporaryDirectory() as tmp:
+            ready=Path(tmp)/'ready'
+            code="import pathlib,sys,time,signal;"+("signal.signal(signal.SIGTERM,signal.SIG_IGN);" if ignore else "")+"pathlib.Path(sys.argv[1]).touch();time.sleep(60)"
+            command=[sys.executable,'-m','observecontext_client','capture','--url','http://127.0.0.1:1',
+                     '--service','test.client','--output',str(Path(tmp)/'events'),'--',sys.executable,'-c',code,str(ready)]
+            process=subprocess.Popen(command,env={**os.environ,'PYTHONPATH':str(ROOT/'src')},stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            try:
+                deadline=time.monotonic()+10
+                while not ready.exists() and time.monotonic()<deadline:
+                    time.sleep(.05)
+                self.assertTrue(ready.exists())
+                process.send_signal(signal.SIGTERM)
+                process.communicate(timeout=8)
+                self.assertEqual(process.returncode,137 if ignore else 143)
+            finally:
+                if process.poll() is None:
+                    process.kill();process.communicate()
+
+    def test_termination_is_forwarded(self):
+        self.check_termination()
+
+    def test_ignored_termination_is_bounded(self):
+        self.check_termination(ignore=True)
+
     def test_bad_configuration_does_not_change_source_result(self):
         with patch.dict(os.environ,{CONFIG_ENV:'invalid'}),contextlib.redirect_stderr(__import__('io').StringIO()):
             with instrument_cli(service='test.client'):

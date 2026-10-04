@@ -16,29 +16,42 @@ PocketBase's existing default `users` collection serves humans and their agents.
 
 ## Collect and inspect
 
-Copy `skills/observecontext/` anywhere, or install it from this repository. The client uses only Python's standard library. Set `OBSERVECONTEXT_URL` and `OBSERVECONTEXT_USER_EMAIL`; then run `oc.py login --google`. Optional `OBSERVECONTEXT_USER_PASSWORD` supports provisioned ordinary accounts. The examples below assume the repository root; use the installed script's absolute path elsewhere.
+Copy `skills/observecontext/` anywhere, or install it from this repository. The executable requires `uv` and resolves a Python 3.11+ package pinned to a full Git commit; initial installation needs network access. Set `OBSERVECONTEXT_URL` and `OBSERVECONTEXT_USER_EMAIL`; then run `observecontext login --google`. Optional `OBSERVECONTEXT_USER_PASSWORD` supports provisioned ordinary accounts. The examples below assume the repository root; use the installed script's absolute path elsewhere.
 
 ```sh
-python3 skills/observecontext/scripts/oc.py login --google
-python3 skills/observecontext/scripts/oc.py check
-python3 skills/observecontext/scripts/oc.py capture --url https://crm.example.com --service dealcontext.client --upload /path/to/dc.py sql 'SELECT id FROM organizations LIMIT 5'
-python3 skills/observecontext/scripts/oc.py flush
+./skills/observecontext/observecontext login --google
+./skills/observecontext/observecontext check
+./skills/observecontext/observecontext capture --url https://crm.example.com --service dealcontext.client --upload -- dealcontext sql 'SELECT id FROM organizations LIMIT 5'
+./skills/observecontext/observecontext flush
 # In another terminal:
-python3 skills/observecontext/scripts/oc.py recent --pretty
-python3 skills/observecontext/scripts/oc.py dashboard
+./skills/observecontext/observecontext recent --pretty
+./skills/observecontext/observecontext dashboard
 ```
 
 The hosted dashboard is served at the application's root URL, including `https://observe.pocketcontext.com/`. Sign in with your own Google Workspace identity. Each viewer sees their own operations unless an operator grants read-all access. The official PocketBase JS SDK stores each viewer’s application token in `LocalAuthStore` (`observecontext.auth`), sharing sign-in and logout across tabs on this origin and retaining sign-in across browser restarts. Tokens are accessible to browser JavaScript. See [hosted dashboard](docs/hosted-dashboard.md) for authentication, deployment and session behavior.
 
-The optional `oc.py dashboard` remains personal and loopback-only at `127.0.0.1:8766`, with credentials in Python and a private printed URL. Forward port 8766 over SSH when using it remotely. The hosted dashboard requires neither that process nor port forwarding. Both show completed operations, paired client/server measurements and Europe/Berlin timestamps. For the legacy protected development proxy, see [dashboard tunnel](docs/dashboard-tunnel.md).
+The optional `observecontext dashboard` remains personal and loopback-only at `127.0.0.1:8766`, with credentials in Python and a private printed URL. Forward port 8766 over SSH when using it remotely. The hosted dashboard requires neither that process nor port forwarding. Both show completed operations, paired client/server measurements and Europe/Berlin timestamps. For the legacy protected development proxy, see [dashboard tunnel](docs/dashboard-tunnel.md).
 
 SQL remains the flexible analysis interface:
 
 ```sh
-python3 skills/observecontext/scripts/oc.py query 'SELECT service,route,avg(duration_ms) AS avg_ms,max(duration_ms) AS max_ms FROM traces GROUP BY service,route ORDER BY max_ms DESC'
+./skills/observecontext/observecontext query 'SELECT service,route,avg(duration_ms) AS avg_ms,max(duration_ms) AS max_ms FROM traces GROUP BY service,route ORDER BY max_ms DESC'
 ```
 
 See [instrumentation](docs/instrumentation.md) for client-requested source traces, account-bound local delivery, and optional legacy file collection. One wrapped invocation creates one owned operation grouping its client/server traces. Scripts calling multiple applications can repeat `--origin CLIENT_SERVICE=HTTP_ORIGIN` to capture explicit application origins with separate labels and credentials; `--url` remains the single-origin shorthand. Tracing is opt-in for each authenticated source request. Other apps must intentionally adopt the pinned server revision and enable the configuration before producing traces; this repository does not change or deploy their server pins.
+
+## Python package and launcher
+
+The package is `observecontext-client`; its console command is `observecontext`.
+The implementation, schema snapshot and dashboard asset live in
+`src/observecontext_client/`. No short aliases or old script entry points remain.
+For source development, use `uv run --project . observecontext --help` and
+`uv build`. Client packages pin the reusable library to a tested full Git revision.
+
+Publish a tested package commit first, then update the standalone launcher's
+`rev` to that published commit. A launcher cannot pin its own containing commit.
+The portable skill test builds a wheel and substitutes its local path in a copied
+launcher; release acceptance must additionally run the unchanged published launcher.
 
 ## Validation
 
@@ -57,6 +70,7 @@ python3 tests/upload_integration.py --binary /absolute/path/to/pinned/pocketcont
 python3 tests/oauth.py
 python3 tests/client.py
 python3 tests/upload.py
+python3 tests/instrumentation.py
 python3 tests/deploy_workflow.py
 python3 tests/dashboard_hosted.py --binary /absolute/path/to/pinned/pocketcontext
 ```
@@ -73,7 +87,7 @@ Container configuration, persistence and populated restore tests gate publicatio
 
 ## Scope and limits
 
-The initial server instrumentation measures authentication; SQL preparation, execution and result scanning; filtered snapshot waiting, construction and reader setup; and SQL result encoding. REST requests have total server duration, without separate domain-hook or transaction measurements. The client wrapper adds HTTP time including response consumption. It supports Python scripts using `urllib.request`, not arbitrary subprocesses or other networking libraries.
+The initial server instrumentation measures authentication; SQL preparation, execution and result scanning; filtered snapshot waiting, construction and reader setup; and SQL result encoding. REST requests have total server duration, without separate domain-hook or transaction measurements. The client wrapper adds HTTP time including response consumption. It launches packaged Context commands normally; each source package explicitly activates its installed instrumentation library. Unsupported commands run but report that capture was not confirmed. Other networking libraries are outside coverage.
 
 SQL capture is explicit and capped at 16 KiB; SQL literals may contain private data; the uploader and operator-authorized broad viewers can read captured text. Headers, credentials, URL queries, REST bodies and query result values are excluded. No coding-agent prompt or full agent session is collected. Caching, DuckDB and materialized views remain future decisions informed by these measurements.
 

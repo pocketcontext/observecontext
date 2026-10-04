@@ -14,6 +14,10 @@ jobs:
         with:
           path: observecontext
           persist-credentials: false
+      - name: Install uv and build the Python client
+        run: |
+          python3 -m pip install uv==0.12.21
+          uv build --directory observecontext --out-dir /tmp/observecontext-dist
       - name: Verify vendored official browser SDK
         working-directory: observecontext
         run: |
@@ -67,6 +71,8 @@ jobs:
         run: python3 observecontext/tests/oauth.py
       - name: Test client utilities and dashboard access
         run: python3 observecontext/tests/client.py
+      - name: Test packaged subprocess instrumentation
+        run: python3 observecontext/tests/instrumentation.py
       - name: Test private upload queue
         run: python3 observecontext/tests/upload.py
       - name: Test opt-in retrieval and upload retry end to end

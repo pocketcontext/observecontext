@@ -55,6 +55,28 @@ class CaptureTests(unittest.TestCase):
         script=output.parent/'client.py';script.write_text(source)
         return run_instrumented(SimpleNamespace(url=url,service='test-client',script=str(script),output=str(output),capture_sql=sql,arguments=[]))
 
+    def test_chunked_json_body_is_preserved(self):
+        class Chunked(http.server.BaseHTTPRequestHandler):
+            protocol_version='HTTP/1.1'
+            def log_message(self,*args):pass
+            def do_GET(self):
+                self.send_response(422 if 'errors' in self.path else 200)
+                self.send_header('Transfer-Encoding','chunked');self.end_headers()
+                for part in [b'{"tables":',b'[{"name":"synthetic"}]}']:
+                    self.wfile.write(f'{len(part):x}\r\n'.encode()+part+b'\r\n')
+                self.wfile.write(b'0\r\n\r\n');self.wfile.flush()
+        with tempfile.TemporaryDirectory() as tmp,serving(Chunked) as target:
+            output=Path(tmp)/'events';url=f'http://127.0.0.1:{target.server_port}'
+            source="""import json,urllib.request,urllib.error
+for path in ['/api/context/schema','/api/collections/errors/records']:
+ try:response=urllib.request.urlopen(BASE+path)
+ except urllib.error.HTTPError as error:response=error
+ with response:
+  assert json.loads(response.read()) == {'tables':[{'name':'synthetic'}]}
+""".replace('BASE',repr(url))
+            self.assertEqual(self.run_script(source,url,output),0)
+            self.assertEqual(len(output.read_text().splitlines()),2)
+
     def test_capture_real_http_and_private_output(self):
         Target.received=[]
         with tempfile.TemporaryDirectory() as tmp, serving(Target) as target, serving(Target) as other:
