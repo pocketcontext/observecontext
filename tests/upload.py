@@ -15,11 +15,19 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-SCRIPTS=Path(__file__).resolve().parents[1]/'skills/observecontext/scripts'
-sys.path.insert(0,str(SCRIPTS))
-import capture
-import oc
-import uploader
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
+from observecontext_client import capture, dashboard, cli as oc, uploader
+import runpy
+
+
+def run_instrumented(args):
+    with capture.capture_session(args):
+        try:
+            runpy.run_path(args.script, run_name='__main__')
+        except SystemExit as error:
+            return error.code or 0
+    return 0
+
 
 
 def event(key='a'):
@@ -139,7 +147,7 @@ class CaptureUploadTests(unittest.TestCase):
             script.write_text("import urllib.request,sys\nrequest=urllib.request.Request("+repr(url+'/api/context/schema')+",headers={'Authorization':'SOURCE_SECRET'})\nwith urllib.request.urlopen(request) as response:response.read()\nsys.exit(7)\n")
             args=SimpleNamespace(url=url,service='skill.client',script=str(script),output=None,capture_sql=True,arguments=[],upload=True)
             with patch.object(oc,'config',return_value={}),patch.object(uploader,'Delivery',Queue),contextlib.redirect_stderr(io.StringIO()) as error:
-                self.assertEqual(capture.run(args),7)
+                self.assertEqual(run_instrumented(args),7)
             self.assertIn('remains in the private queue',error.getvalue())
             self.assertEqual(len(queued),1);self.assertEqual(len(queued[0]),2)
             self.assertEqual(seen[0][1]['X-Context-Trace'],'1')
@@ -164,13 +172,13 @@ class CaptureUploadTests(unittest.TestCase):
                 script.write_text("import urllib.request,urllib.error\nr=urllib.request.Request("+repr(url+'/api/context/schema')+",headers={'Authorization':'SOURCE_SECRET'})\ntry:urllib.request.urlopen(r)\nexcept urllib.error.HTTPError as e:e.close()\n")
                 args=SimpleNamespace(url=url,service='client',script=str(script),output=None,capture_sql=False,arguments=[],upload=True)
                 with patch.object(oc,'config',side_effect=ValueError()),contextlib.redirect_stderr(io.StringIO()):
-                    self.assertEqual(capture.run(args),0)
+                    self.assertEqual(run_instrumented(args),0)
                 self.assertEqual(leaked,[])
                 # A source client may override redirect_request itself. The
                 # nested opener guard must still refuse forwarding its bearer.
                 script.write_text("import urllib.request,urllib.error\nclass Redirect(urllib.request.HTTPRedirectHandler):\n def redirect_request(self,req,fp,code,msg,headers,newurl):return urllib.request.Request(newurl,headers=dict(req.headers))\nrequest=urllib.request.Request("+repr(url+'/api/context/schema')+",headers={'Authorization':'SOURCE_SECRET'})\ntry:urllib.request.build_opener(Redirect).open(request)\nexcept urllib.error.URLError:pass\n")
                 with patch.object(oc,'config',side_effect=ValueError()),contextlib.redirect_stderr(io.StringIO()):
-                    self.assertEqual(capture.run(args),0)
+                    self.assertEqual(run_instrumented(args),0)
                 self.assertEqual(leaked,[])
 
 
@@ -197,7 +205,7 @@ class MultiOriginTests(unittest.TestCase):
             script.write_text("import urllib.request,urllib.error\nfor url,token in "+repr([(catalog_url,'CATALOG_SECRET'),(source_url,'SOURCE_SECRET')])+":\n request=urllib.request.Request(url+'/api/context/schema',headers={'Authorization':token})\n with urllib.request.urlopen(request) as response:response.read()\ntry:urllib.request.urlopen(urllib.request.Request("+repr(source_url+'/api/context/schema')+",headers={'Authorization':'CATALOG_SECRET'}))\nexcept urllib.error.URLError:pass\n")
             args=SimpleNamespace(url=None,origin=['meta.client='+catalog_url,'source.client='+source_url],service='meta.ingest',script=str(script),output=None,capture_sql=False,arguments=[],upload=True)
             with patch.dict(os.environ,{'OBSERVECONTEXT_URL':'http://127.0.0.1:9'}),patch.object(oc,'config',return_value={}),patch.object(uploader,'Delivery',Queue),contextlib.redirect_stderr(io.StringIO()):
-                self.assertEqual(capture.run(args),0)
+                self.assertEqual(run_instrumented(args),0)
             self.assertEqual(len(queued),2)
             self.assertEqual(queued[0][0],queued[1][0]);self.assertEqual({item[1] for item in queued},{'meta.ingest'})
             self.assertEqual([item[2][0]['service'] for item in queued],['meta.client','source.client'])

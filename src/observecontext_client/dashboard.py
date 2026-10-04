@@ -45,7 +45,7 @@ def public_origin(value):
 def make_handler(cfg, session, api=None, origin=None):
     origin = public_origin(origin)
     if api is None:
-        import oc as api
+        from . import cli as api
     prefix = '/' + session + '/'
     class Handler(http.server.BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -106,7 +106,7 @@ def make_handler(cfg, session, api=None, origin=None):
 
 
 def serve(cfg, port, origin=None):
-    import oc
+    from . import cli as oc
     if not 1 <= port <= 65535:
         raise ValueError('dashboard port must be 1..65535')
     origin = public_origin(origin)

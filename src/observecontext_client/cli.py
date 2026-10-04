@@ -27,7 +27,7 @@ import urllib.parse
 import urllib.request
 
 ENV = ['OBSERVECONTEXT_URL', 'OBSERVECONTEXT_USER_EMAIL', 'OBSERVECONTEXT_USER_PASSWORD']
-SCHEMA_FILE = Path(__file__).resolve().parent.parent / 'references' / 'schema.json'
+SCHEMA_FILE = Path(__file__).with_name('schema.json')
 STAMPS = ('created_by', 'updated_by')
 ID_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789'
 TIMEOUT = 30
@@ -141,7 +141,7 @@ def send(cfg, method, path, body=None, token=None, timeout=TIMEOUT):
 
 def login(cfg):
     if not cfg.get('password'):
-        raise Fail(2, 'Set OBSERVECONTEXT_USER_PASSWORD for password login, or run oc.py login --google for browser sign-in.')
+        raise Fail(2, 'Set OBSERVECONTEXT_USER_PASSWORD for password login, or run observecontext login --google for browser sign-in.')
     status, data = send(cfg, 'POST', '/api/collections/users/auth-with-password', {'identity': cfg['email'], 'password': cfg['password']})
     if status != 200 or not isinstance(data, dict) or 'token' not in data:
         raise Fail(1, f'login as {cfg["email"]} failed: HTTP {status}\n{dump(data)}\nCheck the three OBSERVECONTEXT_ variables with the user. User credentials only.')
@@ -225,7 +225,7 @@ def google_login(cfg, port=8765, timeout=180):
             if not valid:
                 status, message = 400, 'Invalid sign-in callback. Return to your terminal.'
             elif 'error' in values:
-                outcome['error'] = 'Google sign-in was denied or cancelled; run oc.py login --google to retry.'
+                outcome['error'] = 'Google sign-in was denied or cancelled; run observecontext login --google to retry.'
                 status, message = 400, 'Sign-in was cancelled. Return to your terminal.'
             elif len(code) != 1 or not code[0]:
                 outcome['error'] = 'Google returned an invalid sign-in callback.'
@@ -261,7 +261,7 @@ def google_login(cfg, port=8765, timeout=180):
         while not outcome and time.monotonic() < deadline:
             server.handle_request()
     if not outcome:
-        raise Fail(1, 'Google sign-in timed out; run oc.py login --google to retry.')
+        raise Fail(1, 'Google sign-in timed out; run observecontext login --google to retry.')
     if 'error' in outcome:
         raise Fail(1, outcome['error'])
     status, data = oauth_send(cfg, 'POST', '/api/collections/users/auth-with-oauth2', {
@@ -291,14 +291,14 @@ def call(cfg, method, path, body=None):
         # Renew at most every five minutes, or near expiry, to respect auth rate limits.
         status, data = oauth_send(cfg, 'POST', '/api/collections/users/auth-refresh', token=session['token'])
         if status != 200:
-            raise Fail(1, f'Google session could not be refreshed (HTTP {status}); run oc.py login --google again.')
+            raise Fail(1, f'Google session could not be refreshed (HTTP {status}); run observecontext login --google again.')
         session = auth_session(cfg, data, 'google')
         if path == '/api/collections/users/auth-refresh':
             return status, data
     status, data = send(cfg, method, path, body, session['token'])
     if cached and 400 <= status < 500 and status != 409 and (status == 401 or token_rejected(cfg, session['token'])):
         if session.get('method') == 'google':
-            raise Fail(1, 'Google session was rejected; run oc.py login --google again.')
+            raise Fail(1, 'Google session was rejected; run observecontext login --google again.')
         session = login(cfg)
         status, data = send(cfg, method, path, body, session['token'])
     return status, data
@@ -383,7 +383,7 @@ def check(cfg):
         return 0
     for line in differences:
         say(line, sys.stdout)
-    say('The server is authoritative: run `oc.py schema` and follow the server\'s error messages where the reference files disagree. '
+    say('The server is authoritative: run `observecontext schema` and follow the server\'s error messages where the reference files disagree. '
         'Ask the user to update this skill.', sys.stdout)
     return 3
 
@@ -551,7 +551,7 @@ def ingest(cfg, path, follow=False, interval=1):
 
 def run(args):
     if args.command == 'capture':
-        import capture
+        from . import capture
         return capture.run(args)
     cfg = config()
     if args.command == 'logout':
@@ -564,7 +564,7 @@ def run(args):
     if args.command == 'check':
         return check(cfg)
     if args.command == 'dashboard':
-        import dashboard
+        from . import dashboard
         return dashboard.serve(cfg, args.port, args.public_origin)
     if args.command == 'whoami':
         response = must(cfg, 'POST', '/api/collections/users/auth-refresh')
@@ -579,7 +579,7 @@ def run(args):
         if data.get('truncated'):
             say('Result truncated; narrow the query or page with a stable ordering.')
     elif args.command == 'flush':
-        from uploader import Delivery
+        from .uploader import Delivery
         delivery = Delivery(sys.modules[__name__], cfg, args.spool, timeout=min(2, args.timeout))
         data = {'delivered_pairs': delivery.flush(args.timeout)}
     elif args.command == 'ingest':
@@ -601,7 +601,7 @@ def run(args):
 def parse(argv):
     pretty = argparse.ArgumentParser(add_help=False)
     pretty.add_argument('--pretty', action='store_true', default=argparse.SUPPRESS)
-    parser = argparse.ArgumentParser(prog='oc.py', parents=[pretty], description='ObserveContext: immutable request traces, SQL analysis and live request dashboard.')
+    parser = argparse.ArgumentParser(prog='observecontext', parents=[pretty], description='ObserveContext: immutable request traces, SQL analysis and live request dashboard.')
     commands = parser.add_subparsers(dest='command', required=True)
     def add(name, help):
         return commands.add_parser(name, parents=[pretty], help=help)
@@ -627,7 +627,7 @@ def parse(argv):
     dashboard_parser = add('dashboard', 'serve a private loopback dashboard; tokens stay in Python')
     dashboard_parser.add_argument('--port', type=int, default=8766)
     dashboard_parser.add_argument('--public-origin', help='exact HTTPS origin behind an authenticated proxy; does not provide authentication')
-    capture_parser = add('capture', 'run an existing Python skill script with HTTP timing')
+    capture_parser = add('capture', 'run an instrumented Context executable with HTTP timing')
     capture_parser.add_argument('--url', help='single application origin; client service label comes from --service')
     capture_parser.add_argument('--origin', action='append', metavar='CLIENT_SERVICE=HTTP_ORIGIN', help='explicit source origin and distinct client label; repeat for multi-origin scripts')
     capture_parser.add_argument('--service', required=True, help='operation source label; also client label when using --url')
@@ -636,7 +636,7 @@ def parse(argv):
     capture_parser.add_argument('--spool', help='private pending queue base directory')
     capture_parser.add_argument('--flush-timeout', type=int, choices=range(1, 121), default=10, metavar='1..120')
     capture_parser.add_argument('--capture-sql', action='store_true')
-    capture_parser.add_argument('script', help='Python script path, without a python executable prefix')
+    capture_parser.add_argument('executable', help='Context executable to run after --')
     capture_parser.add_argument('arguments', nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     args.pretty = getattr(args, 'pretty', False)
@@ -647,12 +647,12 @@ def main():
     try:
         return run(parse(sys.argv[1:]))
     except Fail as error:
-        say(f'oc.py: {error}')
+        say(f'observecontext: {error}')
         return error.code
     except KeyboardInterrupt:
         return 130
     except Exception as error:
-        say(f'oc.py: {type(error).__name__}: {error}')
+        say(f'observecontext: {type(error).__name__}: {error}')
         return 1
 
 

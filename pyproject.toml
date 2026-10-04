@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "observecontext-client"
+version = "0.1.0"
+description = "ObserveContext CLI and opt-in Context client instrumentation"
+requires-python = ">=3.11"
+
+[project.scripts]
+observecontext = "observecontext_client.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/observecontext_client"]

@@ -16,11 +16,19 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-SCRIPTS=Path(__file__).resolve().parents[1]/'skills/observecontext/scripts'
-sys.path.insert(0,str(SCRIPTS))
-import capture
-import dashboard
-import oc
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
+from observecontext_client import capture, dashboard, cli as oc, uploader
+import runpy
+
+
+def run_instrumented(args):
+    with capture.capture_session(args):
+        try:
+            runpy.run_path(args.script, run_name='__main__')
+        except SystemExit as error:
+            return error.code or 0
+    return 0
+
 
 @contextlib.contextmanager
 def serving(handler):
@@ -45,7 +53,7 @@ class Target(http.server.BaseHTTPRequestHandler):
 class CaptureTests(unittest.TestCase):
     def run_script(self,source,url,output,sql=False):
         script=output.parent/'client.py';script.write_text(source)
-        return capture.run(SimpleNamespace(url=url,service='test-client',script=str(script),output=str(output),capture_sql=sql,arguments=[]))
+        return run_instrumented(SimpleNamespace(url=url,service='test-client',script=str(script),output=str(output),capture_sql=sql,arguments=[]))
 
     def test_capture_real_http_and_private_output(self):
         Target.received=[]
@@ -109,7 +117,7 @@ except urllib.error.URLError:pass
             self.assertEqual(json.loads(output.read_text())['status'],0)
             original=output.read_bytes();link=Path(tmp)/'link';link.symlink_to(output)
             with contextlib.redirect_stderr(io.StringIO()):
-                self.assertEqual(self.run_script(source,url,link),1)
+                self.assertEqual(self.run_script(source,url,link),0)
             self.assertEqual(output.read_bytes(),original)
 
     def test_cross_origin_redirect_does_not_forward_correlation_or_capture_reflections(self):

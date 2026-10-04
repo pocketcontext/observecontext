@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
-import runpy
+from contextlib import contextmanager
 import stat
 import sys
 import time
@@ -115,17 +115,17 @@ def capture_origins(args):
     return targets
 
 
-def run(args):
+@contextmanager
+def capture_session(args):
     targets = capture_origins(args)
-    script = Path(args.script).resolve(strict=True)
     output = Path(args.output).absolute() if getattr(args, 'output', None) else None
     upload = getattr(args, 'upload', False)
     delivery = None
     operation_key = uuid.uuid4().hex
     if upload:
         try:
-            import oc
-            from uploader import Delivery
+            from . import cli as oc
+            from .uploader import Delivery
             delivery = Delivery(oc, oc.config(), getattr(args, 'spool', None), timeout=2)
         except Exception:
             print('ObserveContext: telemetry identity unavailable; sign in before capture. The command will still run.', file=sys.stderr)
@@ -147,7 +147,7 @@ def run(args):
         deadline = time.monotonic() + 1.5
         no_redirect = urllib.request.build_opener(type('TraceNoRedirect', (urllib.request.HTTPRedirectHandler,),
                                                      {'redirect_request': lambda *unused: None}))
-        import oc
+        from . import cli as oc
         request = urllib.request.Request(source_url + '/api/context/traces/' + request_id,
                                          headers={'User-Agent': oc.USER_AGENT})
         request.add_unredirected_header('Authorization', token)
@@ -161,7 +161,7 @@ def run(args):
                 if not isinstance(event, dict) or event.get('version') != 1 or event.get('request_id') != request_id:
                     raise ValueError('unexpected server trace')
                 # Never persist producer extensions, response bodies or credentials.
-                import oc
+                from . import cli as oc
                 return {key: event[key] for key in oc.TRACE_FIELDS if key != 'operation' and key in event}
             except urllib.error.HTTPError as error:
                 error.close()
@@ -270,22 +270,14 @@ def run(args):
             finish()
             raise
 
-    old_argv, old_path = sys.argv, list(sys.path)
     urllib.request.OpenerDirector.open = traced
     if upload:
         urllib.request.HTTPRedirectHandler.redirect_request = redirect
-    exit_code = 0
     try:
-        sys.argv = [str(script), *args.arguments]
-        sys.path.insert(0, str(script.parent))
-        try:
-            runpy.run_path(str(script), run_name='__main__')
-        except SystemExit as error:
-            exit_code = error.code or 0
+        yield
     finally:
         urllib.request.OpenerDirector.open = original
         urllib.request.HTTPRedirectHandler.redirect_request = original_redirect
-        sys.argv, sys.path[:] = old_argv, old_path
         for finish in list(pending):
             finish()
         if delivery:
@@ -293,6 +285,41 @@ def run(args):
                 delivered = delivery.flush(timeout=getattr(args, 'flush_timeout', 10))
                 print(f'ObserveContext: delivered {delivered} queued request pair(s).', file=sys.stderr)
             except Exception:
-                print('ObserveContext: telemetry remains in the private queue; retry with oc.py flush.', file=sys.stderr)
-    # Telemetry must never turn a successful source command into a failure.
-    return exit_code if upload else exit_code or (1 if failed else 0)
+                print('ObserveContext: telemetry remains in the private queue; retry with observecontext flush.', file=sys.stderr)
+
+
+def run(args):
+    """Launch an executable with a versioned, nonsecret opt-in descriptor."""
+    import subprocess
+    import tempfile
+    from .instrumentation import CONFIG_ENV, configuration
+    payload = dict(version=1, url=args.url, origin=args.origin or [], service=args.service,
+                   output=str(Path(args.output).absolute()) if args.output else None,
+                   upload=args.upload, spool=str(Path(args.spool).absolute()) if args.spool else None,
+                   flush_timeout=args.flush_timeout, capture_sql=args.capture_sql, status_file=None)
+    with tempfile.TemporaryDirectory(prefix="observecontext-capture-") as directory:
+        status = Path(directory) / "activation.jsonl"
+        payload["status_file"] = str(status)
+        raw = json.dumps(payload, separators=(",", ":"))
+        configuration(raw)
+        env = dict(os.environ, **{CONFIG_ENV: raw})
+        # Inherit streams: prompts, binary output and terminal behavior survive.
+        process = subprocess.Popen([args.executable, *args.arguments], env=env)
+        try:
+            code = process.wait()
+        except KeyboardInterrupt:
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.terminate()
+                process.wait()
+            code = -2
+        try:
+            active = status.is_file() and status.stat().st_size <= 4096 and any(
+                json.loads(line) == {"version": 1, "active": True}
+                for line in status.read_text().splitlines())
+        except (OSError, ValueError):
+            active = False
+        if not active:
+            print("ObserveContext: command did not activate instrumentation; no capture was confirmed.", file=sys.stderr)
+        return code if code >= 0 else 128 - code

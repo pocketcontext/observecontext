@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import importlib.util
+import sys
 import json
 import os
 from pathlib import Path
@@ -16,9 +17,8 @@ import urllib.parse
 import urllib.request
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location('tc', Path(__file__).resolve().parents[1] / 'skills/observecontext/scripts/oc.py')
-tc = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(tc)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
+from observecontext_client import cli as tc
 
 
 class OAuthTest(unittest.TestCase):
