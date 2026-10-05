@@ -92,3 +92,32 @@ The initial server instrumentation measures authentication; SQL preparation, exe
 SQL capture is explicit and capped at 16 KiB; SQL literals may contain private data; the uploader and operator-authorized broad viewers can read captured text. Headers, credentials, URL queries, REST bodies and query result values are excluded. No coding-agent prompt or full agent session is collected. Caching, DuckDB and materialized views remain future decisions informed by these measurements.
 
 Source memory buffers expire and may lose telemetry on overflow or restart. The client persists completed pairs in a private, bounded, account-bound queue; `flush` retries operation and trace uploads without changing their IDs. Telemetry failures preserve the wrapped command’s exit status. Legacy server-file collection remains available explicitly. Stored traces have no automatic expiry in this first release. Plan storage and archival before high-volume use. Application authentication/deployment infrastructure was adapted from RaiseContext; the observability schema is independent.
+
+## Read-only migration maintenance
+
+A superuser can inspect `GET /api/context/maintenance` and freeze writes with
+`PUT /api/context/maintenance` and `{"readOnly":true,"expectedGeneration":N}`,
+using the returned generation. Wait for `state: "read_only"` before taking the
+final migration snapshot. Existing writes drain; new mutations return HTTP 503.
+Authorized reads, SQL queries, and original-file downloads remain available;
+login flows requiring writes can fail. Public submissions are rejected, not queued.
+
+The private `pb_data/maintenance.json` marker persists the freeze across restarts.
+Frozen startup preserves stored settings and credentials, skips replica restore
+and superuser provisioning, and fails for malformed markers, missing databases
+or pending migrations. Preserve the marker alongside the database when migrating.
+Thaw explicitly with `readOnly:false` and the current generation; stale generations
+return HTTP 409. Freeze does not fence external processes or another host: pause CD
+and disable source restart/deployment authority before activating a replacement.
+
+Validate using synthetic temporary data:
+
+```sh
+python3 tests/maintenance.py --binary /absolute/path/to/pinned/pocketcontext
+python3 tests/maintenance_entrypoint.py
+```
+
+Replicated startup waits for Litestream’s private IPC synchronization before serving.
+A fresh writable instance initializes its database first; a frozen instance still
+requires its existing database. Failed synchronization stops startup. This ensures
+Litestream initializes before a quick clean shutdown; replication remains asynchronous.
