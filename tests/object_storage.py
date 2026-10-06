@@ -32,7 +32,7 @@ def main():
                    {**remote, PREFIX + '_S3_FORCE_PATH_STYLE': 'invalid'},
                    {**remote, 'LITESTREAM_BUCKET': 'synthetic-files'},
                    {**remote, 'LITESTREAM_ACCESS_KEY_ID': 'synthetic-file-key'}):
-        result = subprocess.run(['sh', str(ROOT / 'docker/entrypoint.sh'), 'serve'],
+        result = subprocess.run(['python3', str(ROOT / 'docker/entrypoint.py'), 'serve'],
             env={**clean, **values}, capture_output=True, timeout=10)
         output = result.stdout + result.stderr
         assert result.returncode != 0 and b'entrypoint: error:' in output

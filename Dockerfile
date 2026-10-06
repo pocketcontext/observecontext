@@ -56,13 +56,13 @@ RUN go build -trimpath -tags sqlite_math_functions -ldflags '-s -w' -o /out/pock
 
 FROM debian:trixie-20260918-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates tini python3 \
+    && apt-get install -y --no-install-recommends ca-certificates tini python3 python3-boto3 \
     && rm -rf /var/lib/apt/lists/* \
     && test -x /usr/bin/tini
 
 COPY --from=build /out/pocketcontext /out/litestream /usr/local/bin/
 COPY docker/litestream.yml /etc/litestream.yml
-COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY --chmod=0755 docker/entrypoint.py /usr/local/bin/observecontext-entrypoint.py
 WORKDIR /app
 COPY POCKETCONTEXT_VERSION pocketcontext.json ./
 COPY pb_migrations/ ./pb_migrations/
@@ -74,7 +74,7 @@ COPY web/ ./web/
 ENV OBSERVECONTEXT_RATE_LIMITS=true
 VOLUME /storage
 EXPOSE 80
-ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/observecontext-entrypoint.py"]
 
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="ObserveContext" \

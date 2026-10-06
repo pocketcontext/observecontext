@@ -270,13 +270,78 @@ def once_env(extra=None):
     return env
 
 
+def storage_fixture(tmp, network):
+    minio = network + "-minio"
+    # Independent bucket policies and credentials match production separation.
+    for role in ('files', 'replica'):
+        policy = {'Version': '2012-10-17', 'Statement': [
+            {'Effect': 'Allow', 'Action': ['s3:*'],
+             'Resource': [f'arn:aws:s3:::{role}', f'arn:aws:s3:::{role}/*']}]}
+        (tmp / (role + '.json')).write_text(json.dumps(policy))
+    docker('build', '-f', str(ROOT / 'docker/minio.Dockerfile'), '-t', MINIO_IMAGE,
+             str(ROOT / 'docker'), timeout=1200)
+    docker('network', 'create', network)
+    networks.append(network)
+    root_key, root_secret = secret('fixture-root'), secret(secrets.token_hex(24))
+    mc = {'MC_HOST_test': secret(f'http://{root_key}:{root_secret}@127.0.0.1:9000')}
+    containers.append(minio)
+    docker('run', '-d', '--name', minio, '--network', network,
+             '-v', str(tmp) + ':/fixtures:ro', '-e', 'MINIO_ROOT_USER', '-e', 'MINIO_ROOT_PASSWORD',
+             MINIO_IMAGE, 'server', '/data',
+             env={'MINIO_ROOT_USER': root_key, 'MINIO_ROOT_PASSWORD': root_secret})
+    for _ in range(45):
+        status, _ = docker('exec', '-e', 'MC_HOST_test', minio, 'mc', 'mb',
+            '--ignore-existing', 'test/files', 'test/replica', env=mc, ok=False)
+        if status == 0:
+            break
+        time.sleep(1)
+    else:
+        raise Failure('Synthetic MinIO did not become ready')
+    docker('exec', '-e', 'FIXTURE_ROOT_KEY', '-e', 'FIXTURE_ROOT_SECRET', minio,
+             'sh', '-c', 'mc alias set test http://127.0.0.1:9000 "$FIXTURE_ROOT_KEY" "$FIXTURE_ROOT_SECRET"',
+             env={'FIXTURE_ROOT_KEY': root_key, 'FIXTURE_ROOT_SECRET': root_secret})
+    keys = {}
+    for role in ('files', 'replica'):
+        key, password = secret('fixture-' + role), secret(secrets.token_hex(24))
+        keys[role] = (key, password)
+        env = {**mc, 'FIXTURE_KEY': key, 'FIXTURE_SECRET': password}
+        docker('exec', '-e', 'MC_HOST_test', '-e', 'FIXTURE_KEY', '-e', 'FIXTURE_SECRET',
+                 minio, 'sh', '-c', 'mc admin user add test "$FIXTURE_KEY" "$FIXTURE_SECRET"', env=env)
+        docker('exec', '-e', 'MC_HOST_test', minio, 'mc', 'admin', 'policy', 'create',
+                 'test', role, '/fixtures/' + role + '.json', env=mc)
+        docker('exec', '-e', 'MC_HOST_test', minio, 'mc', 'admin', 'policy', 'attach',
+                 'test', role, '--user', key, env=mc)
+    env = once_env({'OBSERVECONTEXT_S3_BUCKET': 'files',
+        'OBSERVECONTEXT_S3_ENDPOINT': f'http://{minio}:9000', 'OBSERVECONTEXT_S3_REGION': 'us-east-1',
+        'OBSERVECONTEXT_S3_ACCESS_KEY_ID': keys['files'][0], 'OBSERVECONTEXT_S3_SECRET_ACCESS_KEY': keys['files'][1],
+        'LITESTREAM_BUCKET': 'replica', 'LITESTREAM_PATH': 'synthetic/data',
+        'LITESTREAM_ENDPOINT': f'http://{minio}:9000', 'LITESTREAM_REGION': 'us-east-1',
+        'LITESTREAM_ACCESS_KEY_ID': keys['replica'][0], 'LITESTREAM_SECRET_ACCESS_KEY': keys['replica'][1],
+        'LITESTREAM_SYNC_INTERVAL': '1h'})
+    return env, minio
+
+
+def initialize(image, volume, env, network):
+    docker("volume", "create", volume)
+    args = ["run", "--rm", "--network", network, "-v", volume + ":/storage"]
+    for key in env:
+        args += ["-e", key]
+    try:
+        docker(*args, image, "init", env=env)
+    except Exception:
+        volumes.append(volume)
+        raise
+
+
 def smoke(image, tmp, run_id):
     name, volume = f'oc-smoke-{run_id}', f'oc-smoke-{run_id}'
-    env = once_env({'LITESTREAM_DISABLED': 'true'})
+    network = 'observecontext-smoke-network-' + run_id
+    env, _ = storage_fixture(tmp, network)
+    initialize(image, volume, env, network)
     user_email, user_password = 'user@example.test', secret(secrets.token_urlsafe(24))
 
-    step('starting the image with the ONCE variables, LITESTREAM_DISABLED=true, a superuser, and a volume at /storage')
-    run_app(image, name, volume, env)
+    step('starting the image with the ONCE variables, mandatory S3 and replication, a superuser, and a volume at /storage')
+    run_app(image, name, volume, env, network)
     base = wait_up(name)
     check(docker('exec', name, 'cat', '/proc/1/comm')[1].strip() == 'tini', 'PID 1 is tini')
 
@@ -375,66 +440,41 @@ def expect_startup_error(image, title, env, named, not_named=()):
 
 
 def config(image, tmp, run_id):
-    required = ['LITESTREAM_BUCKET', 'LITESTREAM_PATH', 'LITESTREAM_ACCESS_KEY_ID', 'LITESTREAM_SECRET_ACCESS_KEY']
-    expect_startup_error(image, 'no variables at all: replication is required unless it is switched off', {}, required)
-    expect_startup_error(image, 'only the secret key is missing',
-                         {'LITESTREAM_BUCKET': 'bucket', 'LITESTREAM_PATH': 'check/data', 'LITESTREAM_ACCESS_KEY_ID': 'key'},
-                         ['LITESTREAM_SECRET_ACCESS_KEY'], ['LITESTREAM_BUCKET', 'LITESTREAM_PATH', 'LITESTREAM_ACCESS_KEY_ID'])
-    expect_startup_error(image, 'LITESTREAM_DISABLED=1 is not exactly "true"', {'LITESTREAM_DISABLED': '1'}, required + ["exactly 'true'"])
-    expect_startup_error(image, 'a superuser email without a password', {'LITESTREAM_DISABLED': 'true', 'OBSERVECONTEXT_SUPERUSER_EMAIL': 'operator@example.test'},
-                         ['OBSERVECONTEXT_SUPERUSER_PASSWORD'])
-
-    expect_startup_error(image, 'a Google client ID without a secret',
-                         {'LITESTREAM_DISABLED': 'true', 'OBSERVECONTEXT_GOOGLE_CLIENT_ID': 'image-test.apps.googleusercontent.com'},
-                         ['OBSERVECONTEXT_GOOGLE_CLIENT_SECRET'])
-    expect_startup_error(image, 'a Google secret without a client ID',
-                         {'LITESTREAM_DISABLED': 'true', 'OBSERVECONTEXT_GOOGLE_CLIENT_SECRET': secret(secrets.token_urlsafe(24))},
-                         ['OBSERVECONTEXT_GOOGLE_CLIENT_ID'])
-
-    step('a replica that cannot be reached: Litestream keeps retrying or fails, and the server never starts on an empty database')
-    name = f'oc-config-{run_id}'
-    env = {'LITESTREAM_BUCKET': 'bucket', 'LITESTREAM_PATH': 'check/data', 'LITESTREAM_REGION': 'us-east-1', 'LITESTREAM_ENDPOINT': 'http://127.0.0.1:9',
-           'LITESTREAM_ACCESS_KEY_ID': 'key', 'LITESTREAM_SECRET_ACCESS_KEY': secret(secrets.token_hex(16))}
-    run_app(image, name, f'oc-config-{run_id}', env)
+    complete = {f'OBSERVECONTEXT_S3_{name}': 'files-' + name.lower() for name in
+                ('BUCKET', 'ENDPOINT', 'REGION', 'ACCESS_KEY_ID', 'SECRET_ACCESS_KEY')}
+    complete.update({f'LITESTREAM_{name}': 'replica-' + name.lower() for name in
+                     ('BUCKET', 'PATH', 'ACCESS_KEY_ID', 'SECRET_ACCESS_KEY')})
+    for name in complete:
+        env = dict(complete)
+        del env[name]
+        expect_startup_error(image, 'missing required ' + name, env, [name])
+    expect_startup_error(image, 'replication cannot be disabled',
+                         dict(complete, LITESTREAM_DISABLED='true'), ['replication is required'])
+    for left, right in [('OBSERVECONTEXT_SUPERUSER_EMAIL', 'OBSERVECONTEXT_SUPERUSER_PASSWORD'),
+                        ('OBSERVECONTEXT_GOOGLE_CLIENT_ID', 'OBSERVECONTEXT_GOOGLE_CLIENT_SECRET')]:
+        for key in (left, right):
+            expect_startup_error(image, 'unpaired ' + key, dict(complete, **{key:'synthetic'}), ['must be set together'])
+    env = dict(complete, LITESTREAM_ENDPOINT='http://127.0.0.1:9', OBSERVECONTEXT_S3_ENDPOINT='http://127.0.0.1:9')
+    name = 'observecontext-config-' + run_id
+    run_app(image, name, name, env)
     time.sleep(20)
     running, code = state(name)
     text = check_logs(name)
-    say('    output: ' + text.strip()[-1500:].replace('\n', '\n            '))
-    check('Server started' not in text and 'starting server' not in text, 'after 20 seconds the server has not started')
-    check(running or code != 0, f'the container is still retrying or exited with an error (running: {running}, status: {code})')
+    check('starting server' not in text and (running or code != 0), 'unreachable replica never starts a server')
 
 
 def restore(image, tmp, run_id):
-    network, minio, bucket = f'oc-drill-{run_id}', f'oc-drill-minio-{run_id}', 'observecontext-drill'
-    minio_user, minio_password = 'drill' + secrets.token_hex(4), secret(secrets.token_hex(20))
-    mc_env = {'MC_HOST_drill': secret(f'http://{minio_user}:{minio_password}@127.0.0.1:9000')}
+    network = 'observecontext-drill-' + run_id
+    fixture, minio = storage_fixture(tmp, network)
+    bucket = fixture['LITESTREAM_BUCKET']
+    mc_env = {'MC_HOST_drill': secret('http://' + fixture['LITESTREAM_ACCESS_KEY_ID'] + ':' + fixture['LITESTREAM_SECRET_ACCESS_KEY'] + '@127.0.0.1:9000')}
     user_email, user_password = 'user@example.test', secret(secrets.token_urlsafe(24))
 
-    step('building the CI-only MinIO fixture from pinned official source commits')
-    docker('build', '--file', str(ROOT / 'docker/minio.Dockerfile'), '--tag', MINIO_IMAGE, str(ROOT / 'docker'), timeout=1200)
-    step('starting MinIO as the S3 service on a private docker network')
-    docker('network', 'create', network)
-    networks.append(network)
-    containers.append(minio)
-    docker('run', '-d', '--name', minio, '--network', network, '-e', 'MINIO_ROOT_USER', '-e', 'MINIO_ROOT_PASSWORD', MINIO_IMAGE, 'server', '/data',
-           env={'MINIO_ROOT_USER': minio_user, 'MINIO_ROOT_PASSWORD': minio_password})
-    deadline = time.time() + 90
-    while True:
-        status, text = docker('exec', '-e', 'MC_HOST_drill', minio, 'mc', 'mb', '--ignore-existing', f'drill/{bucket}', env=mc_env, ok=False)
-        if status == 0:
-            break
-        if time.time() > deadline:
-            raise Failure(f'MinIO did not accept a bucket within 90 seconds:\n{text}')
-        time.sleep(2)
-    check(True, f'bucket {bucket} exists')
-
     def app_env(sync_interval):
-        return once_env({'LITESTREAM_BUCKET': bucket, 'LITESTREAM_PATH': f'drill-{run_id}/data', 'LITESTREAM_REGION': 'us-east-1',
-                         'LITESTREAM_ENDPOINT': f'http://{minio}:9000', 'LITESTREAM_ACCESS_KEY_ID': minio_user,
-                         'LITESTREAM_SECRET_ACCESS_KEY': minio_password, 'LITESTREAM_SYNC_INTERVAL': sync_interval})
+        return dict(fixture, LITESTREAM_SYNC_INTERVAL=sync_interval)
 
     def replica_files():
-        text = docker('exec', '-e', 'MC_HOST_drill', minio, 'mc', 'ls', '--recursive', f'drill/{bucket}/drill-{run_id}/', env=mc_env, ok=False)[1]
+        text = docker('exec', '-e', 'MC_HOST_drill', minio, 'mc', 'ls', '--recursive', f'drill/{bucket}/synthetic/', env=mc_env, ok=False)[1]
         say('    ' + text.strip().replace('\n', '\n    '))
         return text.count('.ltx')
 
@@ -449,6 +489,7 @@ def restore(image, tmp, run_id):
 
     step('container A: empty volume, empty replica, sync every second')
     env = app_env('1s')
+    initialize(image, first, env, network)
     run_app(image, first, first, env, network)
     base = wait_up(first)
     token = superuser_token(base, env['OBSERVECONTEXT_SUPERUSER_EMAIL'], env['OBSERVECONTEXT_SUPERUSER_PASSWORD'])
@@ -461,7 +502,7 @@ def restore(image, tmp, run_id):
     step('disaster: kill container A without a shutdown, remove it and its volume')
     docker('kill', first)
     text = check_logs(first)
-    check('the replica holds no backup' in text, 'container A started from an empty replica')
+    check('database exists in the volume: no restore' in text, 'container A started from an empty replica')
     destroy(first, first)
 
     step('container B: empty volume, same replica, sync once an hour so that only the shutdown sync can save a late write')
@@ -473,14 +514,14 @@ def restore(image, tmp, run_id):
     check_records(client, trace, unused)
     client.run('check')
     text = logs(second)
-    check('post-restore integrity check passed' in text, "Litestream's integrity check of the restored database passed")
+    check('database restored and referenced remote files readable' in text, "Litestream's integrity check of the restored database passed")
     superuser_token(base, env['OBSERVECONTEXT_SUPERUSER_EMAIL'], env['OBSERVECONTEXT_SUPERUSER_PASSWORD'])
 
     step('a write immediately before docker stop must reach the replica through the shutdown sync')
     late, _ = write_record(client, user_id)
     stop(second)
     text = check_logs(second)
-    check('waiting for initial database and replica synchronization' in text, 'replica readiness is required before serving')
+    check('initial replica synchronization complete' in text, 'replica readiness is required before serving')
     check('litestream shut down' in text, 'Litestream received the signal and shut down after the server')
     say('    container B replication and shutdown logs:\n' + text)
     destroy(second, second)

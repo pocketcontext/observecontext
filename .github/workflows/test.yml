@@ -1,14 +1,16 @@
 name: Observability integration
 on:
-  push:
-  pull_request:
   # image.yml calls this workflow before it publishes an image.
   workflow_call:
 permissions:
   contents: read
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -18,6 +20,9 @@ jobs:
         run: |
           python3 -m pip install uv==0.12.21
           uv build --directory observecontext --out-dir /tmp/observecontext-dist
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
       - name: Verify vendored official browser SDK
         working-directory: observecontext
         run: |
@@ -26,6 +31,8 @@ jobs:
           git diff --exit-code -- web/pocketbase.es.mjs web/pocketbase.LICENSE.md
       - name: Test deployment orchestration
         run: python3 observecontext/tests/deploy_workflow.py
+      - name: Python runtime safety
+        run: python3 observecontext/tests/entrypoint.py
       - name: Read server revision
         id: server
         shell: bash
@@ -86,5 +93,4 @@ jobs:
 
       - name: Maintenance freeze and frozen startup
         run: |
-          python3 observecontext/tests/maintenance_entrypoint.py
           python3 observecontext/tests/maintenance.py --binary pocketcontext/bin/pocketcontext

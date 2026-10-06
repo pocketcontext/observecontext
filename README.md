@@ -133,7 +133,7 @@ endpoint. Optional `OBSERVECONTEXT_S3_FORCE_PATH_STYLE` is exactly `true` or
 credentials. A writable restart with stored S3 enabled requires explicit complete
 configuration, preventing accidental fallback to local disk. File credentials must
 be scoped to the primary bucket; Litestream uses a different bucket and key.
-With S3 unconfigured and disabled, existing local development behavior is preserved.
+Direct local server development can still use local storage; the container requires S3.
 
 These credentials and the primary file bucket are separate from the
 `LITESTREAM_*` SQLite replica configuration. This application currently has no
@@ -186,3 +186,13 @@ Local validation on 6 October 2026 passed image build, container configuration,
 smoke and populated restore, plus the three-stage primary S3 recovery gate and
 stale-snapshot/private-copy regression checks. These used the pinned server and
 isolated synthetic data; images remain local and production has not been changed.
+
+## Strict container runtime
+
+The container now requires separate primary S3 and Litestream storage and explicit
+fresh-install initialization. See [container runtime](docs/container-runtime.md)
+for startup, staged verified recovery, maintenance and validation requirements.
+Local direct-server development may still use local storage. The old deployment
+is retired; fresh deployment is outside this change.
+
+See [CI and deployment](docs/ci-and-deployment.md) for common release controls.

@@ -77,6 +77,7 @@ def main():
                 'LITESTREAM_ACCESS_KEY_ID': keys['replica'][0], 'LITESTREAM_SECRET_ACCESS_KEY': keys['replica'][1],
                 'LITESTREAM_SYNC_INTERVAL': '1h'})
             first, second = network + '-source', network + '-restored'
+            s.initialize(args.image, first, env, network)
             s.run_app(args.image, first, first, env, network)
             base = s.wait_up(first)
             admin = s.superuser_token(base, env[PREFIX + '_SUPERUSER_EMAIL'], env[PREFIX + '_SUPERUSER_PASSWORD'])
@@ -198,6 +199,24 @@ def main():
             s.docker('rm', second)
             s.docker('volume', 'rm', second)
             s.volumes.remove(second)
+            # A missing referenced object must fail before the staged database
+            # is installed, and a retry must still refuse the incomplete replica.
+            missing_key = '/'.join((collection['id'], automatic_file['id'], automatic_file['original']))
+            s.docker('exec', '-e', 'MC_HOST_test', minio, 'mc', 'mv',
+                     'test/files/' + missing_key, 'test/files/held-original', env=mc)
+            rejected = network + '-missing-file'
+            s.docker('volume', 'create', rejected)
+            s.volumes.append(rejected)
+            attempt = ['run', '--rm', '--network', network, '-v', rejected + ':/storage']
+            for key in env:
+                attempt += ['-e', key]
+            for _ in range(2):
+                status, output = s.docker(*attempt, args.image, env=env, ok=False)
+                s.check(status != 0 and 'starting server' not in output, 'missing file refuses startup on repeated recovery')
+                s.docker('run', '--rm', '-v', rejected + ':/storage', '--entrypoint', 'sh', args.image,
+                         '-c', 'test ! -e /storage/pb_data/data.db')
+            s.docker('exec', '-e', 'MC_HOST_test', minio, 'mc', 'mv',
+                     'test/files/held-original', 'test/files/' + missing_key, env=mc)
             # Disaster recovery: normal entrypoint, truly empty volume, no manual
             # SQLite restoration, auxiliary database or maintenance marker copying.
             third = network + '-automatic'
@@ -220,7 +239,7 @@ def main():
                 'p=Path("/storage/pb_data/auxiliary.db"); assert p.is_file(); '
                 'db=sqlite3.connect(p.as_uri()+"?mode=ro",uri=True); '
                 'assert db.execute("PRAGMA integrity_check").fetchone()==("ok",)')
-            s.check('post-restore integrity check passed' in s.logs(third), 'normal entrypoint restored and verified SQLite')
+            s.check('database restored and referenced remote files readable' in s.logs(third), 'normal entrypoint restored and verified SQLite')
             s.stop(third)
             s.check_logs(third)
             failed = False
