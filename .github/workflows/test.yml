@@ -59,6 +59,10 @@ jobs:
         run: python3 observecontext/tests/realtime_access.py --binary pocketcontext/bin/pocketcontext
       - name: Test first-start deployment settings
         run: python3 observecontext/tests/deploy.py --binary pocketcontext/bin/pocketcontext
+      - name: Recovery comparison safety
+        run: python3 observecontext/tests/recovery_compare.py
+      - name: Primary file storage configuration
+        run: python3 observecontext/tests/object_storage.py --binary pocketcontext/bin/pocketcontext
       - name: Install hosted dashboard browser tooling
         run: |
           npm install --prefix /tmp/observe-browser --no-audit --no-fund playwright@1.63.0
