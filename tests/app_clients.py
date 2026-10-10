@@ -8,7 +8,7 @@ APPS={'dealcontext':'dc','taskcontext':'tc','raisecontext':'rc','wikicontext':'w
 def server(app,tmp):
  root=ROOT/app;folder=Path(tempfile.mkdtemp(prefix=app+'-',dir=tmp));cfg=json.loads((root/'pocketcontext.json').read_text())
  if app!='observecontext':assert cfg.get('tracing',{}).get('delivery')=='buffer',app
- service_env={k:v for k,v in os.environ.items() if not k.startswith(tuple(a.upper()+'_' for a in [*APPS,'observecontext','metacontext'])+('SMTP_','MAILER_','BASE_URL','SOURCE_TOKEN'))}
+ service_env={k:v for k,v in os.environ.items() if not k.startswith(tuple(a.upper()+'_' for a in [*APPS,'observecontext'])+('SMTP_','MAILER_','BASE_URL','SOURCE_TOKEN'))}
  service_env['HOME']=str(tmp/'home')
  common=[str(APP_BINARIES.get(app,BIN)),'--dir',str(folder/'data'),'--migrationsDir',str(root/'pb_migrations'),'--hooksDir',str(root/'pb_hooks')]
  result=subprocess.run(common+['superuser','upsert','test@example.test','SyntheticAdminPassword123!'],cwd=root,env=service_env,capture_output=True)
@@ -45,7 +45,7 @@ def main():
  with tempfile.TemporaryDirectory(prefix='pocketcontext-client-rollout-') as path:
   tmp=Path(path)
   with server('observecontext',tmp) as (dest,query,token,_):
-   env={k:v for k,v in os.environ.items() if not k.startswith(tuple(a.upper()+'_' for a in [*APPS,'observecontext','metacontext']))}
+   env={k:v for k,v in os.environ.items() if not k.startswith(tuple(a.upper()+'_' for a in [*APPS,'observecontext']))}
    env.update(HOME=str(tmp/'home'),XDG_CACHE_HOME=str(tmp/'cache'),OBSERVECONTEXT_URL=dest,OBSERVECONTEXT_USER_EMAIL='client@example.test',OBSERVECONTEXT_USER_PASSWORD='SyntheticClientPassword123!')
    # Independent package environments exercise dependencies rather than sys.path injection.
    executables={}
