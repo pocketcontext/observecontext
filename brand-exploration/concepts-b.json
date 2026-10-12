@@ -1,0 +1,233 @@
+[
+  {
+    "id": 35,
+    "name": "Interval bridge",
+    "family": "Spans & waterfalls",
+    "description": "Nested intervals give an operation its shape. Interval bridge uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M23 85V38H104V85 M43 85V57H84V85 M63 85V75 M23 103H104\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"9\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 36,
+    "name": "Trace ribbons",
+    "family": "Spans & waterfalls",
+    "description": "Nested intervals give an operation its shape. Trace ribbons uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M21 21H107V40H40V59H21Z M45 45H107V64H64V83H45Z M69 69H107V107H88V88H69Z\" fill=\"currentColor\"/>"
+  },
+  {
+    "id": 37,
+    "name": "Paired spans",
+    "family": "Spans & waterfalls",
+    "description": "Nested intervals give an operation its shape. Paired spans uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<rect x=\"22\" y=\"29\" width=\"60\" height=\"18\" rx=\"9\" fill=\"currentColor\"/><rect x=\"45\" y=\"59\" width=\"60\" height=\"18\" rx=\"9\" fill=\"currentColor\"/><rect x=\"22\" y=\"89\" width=\"83\" height=\"14\" rx=\"7\" fill=\"currentColor\"/><path d=\"M22 16V112\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 38,
+    "name": "Offset windows",
+    "family": "Spans & waterfalls",
+    "description": "Nested intervals give an operation its shape. Offset windows uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<rect x=\"20\" y=\"22\" width=\"58\" height=\"29\" rx=\"5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\"/><rect x=\"42\" y=\"50\" width=\"62\" height=\"29\" rx=\"5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\"/><rect x=\"63\" y=\"79\" width=\"41\" height=\"29\" rx=\"5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\"/>"
+  },
+  {
+    "id": 39,
+    "name": "Phase ladder",
+    "family": "Spans & waterfalls",
+    "description": "Nested intervals give an operation its shape. Phase ladder uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M28 21V107 M100 21V107 M28 31H76 M52 53H100 M28 75H69 M61 97H100\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 40,
+    "name": "Nested duration",
+    "family": "Spans & waterfalls",
+    "description": "Nested intervals give an operation its shape. Nested duration uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M22 98V29H104V98 M42 98V49H84V98 M62 98V70 M22 108H104\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 41,
+    "name": "Observed pulse",
+    "family": "Signals & samples",
+    "description": "Measured activity becomes a visual rhythm. Observed pulse uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M19 66H38L50 31 66 98 81 49 93 66H110\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"9\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 42,
+    "name": "Wave window",
+    "family": "Signals & samples",
+    "description": "Measured activity becomes a visual rhythm. Wave window uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<rect x=\"20\" y=\"24\" width=\"88\" height=\"80\" rx=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\"/><path d=\"M32 66H44L54 44 69 84 79 60H96\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 43,
+    "name": "Sampling dots",
+    "family": "Signals & samples",
+    "description": "Measured activity becomes a visual rhythm. Sampling dots uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<circle cx=\"24\" cy=\"83\" r=\"7\" fill=\"currentColor\"/><circle cx=\"44\" cy=\"59\" r=\"8\" fill=\"currentColor\"/><circle cx=\"64\" cy=\"32\" r=\"9\" fill=\"currentColor\"/><circle cx=\"84\" cy=\"61\" r=\"8\" fill=\"currentColor\"/><circle cx=\"104\" cy=\"91\" r=\"7\" fill=\"currentColor\"/><path d=\"M24 105H104\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 44,
+    "name": "Frequency gate",
+    "family": "Signals & samples",
+    "description": "Measured activity becomes a visual rhythm. Frequency gate uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M23 91V42 M44 91V28 M65 91V53 M86 91V37 M107 91V64 M23 106H107\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 45,
+    "name": "Harmonic trace",
+    "family": "Signals & samples",
+    "description": "Measured activity becomes a visual rhythm. Harmonic trace uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M19 65Q33 17 47 65Q61 113 75 65Q89 17 109 65\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M23 106H105\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 46,
+    "name": "Sampling aperture",
+    "family": "Signals & samples",
+    "description": "Measured activity becomes a visual rhythm. Sampling aperture uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M21 43V23H42 M86 23H107V43 M21 85V105H42 M86 105H107V85 M37 78 53 56 70 71 91 46\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 47,
+    "name": "Pulse origin",
+    "family": "Signals & samples",
+    "description": "Measured activity becomes a visual rhythm. Pulse origin uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<circle cx=\"27\" cy=\"64\" r=\"10\" fill=\"currentColor\"/><path d=\"M42 64H51L63 29 80 99 94 64H109\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 48,
+    "name": "Signal staircase",
+    "family": "Signals & samples",
+    "description": "Measured activity becomes a visual rhythm. Signal staircase uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M20 91H38V68H58V39H79V57H107\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M20 107H107\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 49,
+    "name": "Measured waves",
+    "family": "Signals & samples",
+    "description": "Measured activity becomes a visual rhythm. Measured waves uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M21 43Q42 22 63 43Q84 64 107 43 M21 65Q42 44 63 65Q84 86 107 65 M21 87Q42 66 63 87Q84 108 107 87\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 50,
+    "name": "Quiet baseline",
+    "family": "Signals & samples",
+    "description": "Measured activity becomes a visual rhythm. Quiet baseline uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M21 82H44L54 60 65 83H107 M21 104H107 M35 31V44 M64 23V36 M93 31V44\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 51,
+    "name": "Insight lens",
+    "family": "Analysis & insight",
+    "description": "Simple analytical forms reveal patterns worth understanding. Insight lens uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<circle cx=\"54\" cy=\"54\" r=\"31\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\"/><path d=\"M78 78 108 108 M39 67V52 M53 67V38 M67 67V47\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 52,
+    "name": "Distribution",
+    "family": "Analysis & insight",
+    "description": "Simple analytical forms reveal patterns worth understanding. Distribution uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<rect x=\"21\" y=\"76\" width=\"16\" height=\"30\" rx=\"5\" fill=\"currentColor\"/><rect x=\"44\" y=\"46\" width=\"16\" height=\"60\" rx=\"5\" fill=\"currentColor\"/><rect x=\"67\" y=\"24\" width=\"16\" height=\"82\" rx=\"5\" fill=\"currentColor\"/><rect x=\"90\" y=\"62\" width=\"16\" height=\"44\" rx=\"5\" fill=\"currentColor\"/>"
+  },
+  {
+    "id": 53,
+    "name": "Scatter focus",
+    "family": "Analysis & insight",
+    "description": "Simple analytical forms reveal patterns worth understanding. Scatter focus uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M25 22V103H107\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"47\" cy=\"75\" r=\"6\" fill=\"currentColor\"/><circle cx=\"67\" cy=\"53\" r=\"7\" fill=\"currentColor\"/><circle cx=\"93\" cy=\"33\" r=\"9\" fill=\"currentColor\"/><circle cx=\"92\" cy=\"75\" r=\"5\" fill=\"currentColor\"/>"
+  },
+  {
+    "id": 54,
+    "name": "Insight slope",
+    "family": "Analysis & insight",
+    "description": "Simple analytical forms reveal patterns worth understanding. Insight slope uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M22 105V23 M22 105H108 M40 83 62 60 79 71 104 38 M84 38H104V58\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 55,
+    "name": "Comparison",
+    "family": "Analysis & insight",
+    "description": "Simple analytical forms reveal patterns worth understanding. Comparison uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<rect x=\"23\" y=\"24\" width=\"31\" height=\"80\" rx=\"7\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\"/><rect x=\"75\" y=\"47\" width=\"31\" height=\"57\" rx=\"7\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\"/><path d=\"M23 68H54 M75 77H106\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 56,
+    "name": "Analysis grid",
+    "family": "Analysis & insight",
+    "description": "Simple analytical forms reveal patterns worth understanding. Analysis grid uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<rect x=\"21\" y=\"21\" width=\"86\" height=\"86\" rx=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\"/><path d=\"M21 63H107 M63 21V107 M35 45H49 M78 91 91 77\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"84\" cy=\"42\" r=\"8\" fill=\"currentColor\"/>"
+  },
+  {
+    "id": 57,
+    "name": "Performance dial",
+    "family": "Analysis & insight",
+    "description": "Simple analytical forms reveal patterns worth understanding. Performance dial uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M21 95A44 44 0 1 1 107 95 M64 67 87 43 M38 90H90\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"64\" cy=\"67\" r=\"7\" fill=\"currentColor\"/>"
+  },
+  {
+    "id": 58,
+    "name": "Outlier",
+    "family": "Analysis & insight",
+    "description": "Simple analytical forms reveal patterns worth understanding. Outlier uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<circle cx=\"33\" cy=\"83\" r=\"9\" fill=\"currentColor\"/><circle cx=\"59\" cy=\"83\" r=\"9\" fill=\"currentColor\"/><circle cx=\"85\" cy=\"83\" r=\"9\" fill=\"currentColor\"/><circle cx=\"33\" cy=\"56\" r=\"9\" fill=\"currentColor\"/><circle cx=\"59\" cy=\"56\" r=\"9\" fill=\"currentColor\"/><circle cx=\"95\" cy=\"28\" r=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\"/>"
+  },
+  {
+    "id": 59,
+    "name": "Signal funnel",
+    "family": "Analysis & insight",
+    "description": "Simple analytical forms reveal patterns worth understanding. Signal funnel uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M23 24H105L76 61V96L52 108V61Z M41 43H87\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 60,
+    "name": "Insight layers",
+    "family": "Analysis & insight",
+    "description": "Simple analytical forms reveal patterns worth understanding. Insight layers uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M20 42 64 20 108 42 64 64Z M20 65 64 87 108 65 M20 89 64 110 108 89\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 61,
+    "name": "Correlated triad",
+    "family": "Correlation & topology",
+    "description": "Related measurements connect without losing their individual shape. Correlated triad uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<circle cx=\"30\" cy=\"34\" r=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\"/><circle cx=\"98\" cy=\"34\" r=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\"/><circle cx=\"64\" cy=\"96\" r=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\"/><path d=\"M44 34H84 M37 48 56 82 M91 48 72 82\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 62,
+    "name": "Operation hub",
+    "family": "Correlation & topology",
+    "description": "Related measurements connect without losing their individual shape. Operation hub uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<circle cx=\"64\" cy=\"64\" r=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\"/><circle cx=\"26\" cy=\"26\" r=\"9\" fill=\"currentColor\"/><circle cx=\"102\" cy=\"26\" r=\"9\" fill=\"currentColor\"/><circle cx=\"26\" cy=\"102\" r=\"9\" fill=\"currentColor\"/><circle cx=\"102\" cy=\"102\" r=\"9\" fill=\"currentColor\"/><path d=\"M37 37 51 51 M77 51 91 37 M37 91 51 77 M77 77 91 91\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 63,
+    "name": "Joined traces",
+    "family": "Correlation & topology",
+    "description": "Related measurements connect without losing their individual shape. Joined traces uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M21 42H48L80 85H107 M21 85H48L80 42H107\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><rect x=\"55\" y=\"55\" width=\"18\" height=\"18\" rx=\"4\" fill=\"currentColor\"/>"
+  },
+  {
+    "id": 64,
+    "name": "Trace constellation",
+    "family": "Correlation & topology",
+    "description": "Related measurements connect without losing their individual shape. Trace constellation uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<circle cx=\"26\" cy=\"91\" r=\"10\" fill=\"currentColor\"/><circle cx=\"49\" cy=\"35\" r=\"10\" fill=\"currentColor\"/><circle cx=\"85\" cy=\"55\" r=\"10\" fill=\"currentColor\"/><circle cx=\"103\" cy=\"99\" r=\"10\" fill=\"currentColor\"/><path d=\"M30 78 44 49 M62 41 72 49 M90 69 98 85 M37 91H88\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 65,
+    "name": "Operation parent",
+    "family": "Correlation & topology",
+    "description": "Related measurements connect without losing their individual shape. Operation parent uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<rect x=\"44\" y=\"19\" width=\"40\" height=\"27\" rx=\"7\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\"/><rect x=\"18\" y=\"83\" width=\"32\" height=\"26\" rx=\"6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\"/><rect x=\"78\" y=\"83\" width=\"32\" height=\"26\" rx=\"6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\"/><path d=\"M64 48V64 M34 80V64H94V80\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 66,
+    "name": "Correlation chain",
+    "family": "Correlation & topology",
+    "description": "Related measurements connect without losing their individual shape. Correlation chain uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M44 74 33 85Q18 100 33 108Q43 113 53 103L68 88 M61 40 76 25Q90 13 101 25Q113 37 101 49L87 62 M47 80 81 46\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"9\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 67,
+    "name": "Service triangle",
+    "family": "Correlation & topology",
+    "description": "Related measurements connect without losing their individual shape. Service triangle uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M64 20 108 99H20Z M64 20V71 M20 99 64 71 108 99\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"64\" cy=\"71\" r=\"10\" fill=\"currentColor\"/>"
+  }
+]

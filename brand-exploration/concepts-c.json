@@ -1,0 +1,233 @@
+[
+  {
+    "id": 68,
+    "name": "Trace mesh",
+    "family": "Correlation & topology",
+    "description": "Related measurements connect without losing their individual shape. Trace mesh uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M27 27H101V101H27Z M27 27 101 101 M101 27 27 101\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"27\" cy=\"27\" r=\"9\" fill=\"currentColor\"/><circle cx=\"101\" cy=\"27\" r=\"9\" fill=\"currentColor\"/><circle cx=\"27\" cy=\"101\" r=\"9\" fill=\"currentColor\"/><circle cx=\"101\" cy=\"101\" r=\"9\" fill=\"currentColor\"/>"
+  },
+  {
+    "id": 69,
+    "name": "Pair identity",
+    "family": "Correlation & topology",
+    "description": "Related measurements connect without losing their individual shape. Pair identity uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M23 28H49V100H23Z M79 28H105V100H79Z M49 46H79 M49 83H79\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"64\" cy=\"64\" r=\"7\" fill=\"currentColor\"/>"
+  },
+  {
+    "id": 70,
+    "name": "Context orbitals",
+    "family": "Correlation & topology",
+    "description": "Related measurements connect without losing their individual shape. Context orbitals uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<circle cx=\"64\" cy=\"64\" r=\"11\" fill=\"currentColor\"/><path d=\"M25 34Q64 12 103 34Q124 64 103 94Q64 116 25 94Q4 64 25 34 M64 19Q33 64 64 109 M64 19Q95 64 64 109\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 71,
+    "name": "Precision frame",
+    "family": "Focus & instruments",
+    "description": "Careful instrumentation brings the right details into focus. Precision frame uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M44 21H21V44 M84 21H107V44 M21 84V107H44 M107 84V107H84 M64 39V89 M39 64H89\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 72,
+    "name": "Instrument ring",
+    "family": "Focus & instruments",
+    "description": "Careful instrumentation brings the right details into focus. Instrument ring uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<circle cx=\"64\" cy=\"64\" r=\"40\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\"/><path d=\"M64 15V35 M64 93V113 M15 64H35 M93 64H113\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"64\" cy=\"64\" r=\"8\" fill=\"currentColor\"/>"
+  },
+  {
+    "id": 73,
+    "name": "Radar return",
+    "family": "Focus & instruments",
+    "description": "Careful instrumentation brings the right details into focus. Radar return uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<circle cx=\"64\" cy=\"64\" r=\"41\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\"/><path d=\"M64 64 93 35 M64 64V24 M64 64H105\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"44\" cy=\"81\" r=\"7\" fill=\"currentColor\"/><circle cx=\"78\" cy=\"86\" r=\"5\" fill=\"currentColor\"/>"
+  },
+  {
+    "id": 74,
+    "name": "Scan sweep",
+    "family": "Focus & instruments",
+    "description": "Careful instrumentation brings the right details into focus. Scan sweep uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M25 104V24H105 M25 104H105 M46 42H102 M46 63H83 M46 84H66\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M97 72V104 M86 88H108\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 75,
+    "name": "Probe point",
+    "family": "Focus & instruments",
+    "description": "Careful instrumentation brings the right details into focus. Probe point uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M25 102 75 52 M66 23 105 62 M82 39 101 20 M27 81 47 101\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"63\" cy=\"64\" r=\"11\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"6\"/>"
+  },
+  {
+    "id": 76,
+    "name": "Microscope abstract",
+    "family": "Focus & instruments",
+    "description": "Careful instrumentation brings the right details into focus. Microscope abstract uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M58 22 85 39 65 70 38 53Z M49 60 41 75 M80 67Q107 101 65 105H23 M34 88H65 M26 106V95\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 77,
+    "name": "Signal scope",
+    "family": "Focus & instruments",
+    "description": "Careful instrumentation brings the right details into focus. Signal scope uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M24 24H104V86H24Z M43 107H85 M64 87V107 M36 64H49L60 42 73 71 83 55H93\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 78,
+    "name": "Focus diamond",
+    "family": "Focus & instruments",
+    "description": "Careful instrumentation brings the right details into focus. Focus diamond uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M64 18 110 64 64 110 18 64Z M64 39V89 M39 64H89\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"64\" cy=\"64\" r=\"11\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"6\"/>"
+  },
+  {
+    "id": 79,
+    "name": "Inspection portal",
+    "family": "Focus & instruments",
+    "description": "Careful instrumentation brings the right details into focus. Inspection portal uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M24 104V52Q24 20 64 20Q104 20 104 52V104 M40 104V55Q40 38 64 38Q88 38 88 55V104 M54 75H74\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 80,
+    "name": "Measured target",
+    "family": "Focus & instruments",
+    "description": "Careful instrumentation brings the right details into focus. Measured target uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M44 26A43 43 0 1 0 102 44 M64 18V38 M90 25 77 44 M109 64H89\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"64\" cy=\"64\" r=\"17\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\"/>"
+  },
+  {
+    "id": 81,
+    "name": "Open interval O",
+    "family": "Abstract O",
+    "description": "The initial becomes an instrument, a route or an interval. Open interval O uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M88 30A42 42 0 1 0 105 66 M91 31H107V48\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"12\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 82,
+    "name": "Squared O",
+    "family": "Abstract O",
+    "description": "The initial becomes an instrument, a route or an interval. Squared O uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<rect x=\"25\" y=\"21\" width=\"78\" height=\"86\" rx=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"15\"/>"
+  },
+  {
+    "id": 83,
+    "name": "Split O",
+    "family": "Abstract O",
+    "description": "The initial becomes an instrument, a route or an interval. Split O uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M55 23Q24 27 24 64Q24 101 55 105 M73 23Q104 27 104 64Q104 101 73 105\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"13\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 84,
+    "name": "Phase O",
+    "family": "Abstract O",
+    "description": "The initial becomes an instrument, a route or an interval. Phase O uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M31 32Q64 10 97 32 M106 47V80 M97 97Q64 117 31 97 M22 47V80\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"13\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 85,
+    "name": "Orbit O",
+    "family": "Abstract O",
+    "description": "The initial becomes an instrument, a route or an interval. Orbit O uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<circle cx=\"64\" cy=\"64\" r=\"34\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"13\"/><path d=\"M22 98 106 30\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 86,
+    "name": "Trace O",
+    "family": "Abstract O",
+    "description": "The initial becomes an instrument, a route or an interval. Trace O uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M42 24H85L105 44V86L85 106H42L23 86V44Z M43 45V84H84V45Z\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 87,
+    "name": "Nested O",
+    "family": "Abstract O",
+    "description": "The initial becomes an instrument, a route or an interval. Nested O uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<circle cx=\"64\" cy=\"64\" r=\"42\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"9\"/><path d=\"M78 43Q44 22 43 64Q44 105 78 85\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"9\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 88,
+    "name": "Gate O",
+    "family": "Abstract O",
+    "description": "The initial becomes an instrument, a route or an interval. Gate O uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M103 64Q103 23 64 23Q25 23 25 64Q25 105 64 105H103V64H71\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"12\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 89,
+    "name": "Diamond O",
+    "family": "Abstract O",
+    "description": "The initial becomes an instrument, a route or an interval. Diamond O uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M64 19 109 64 64 109 19 64Z\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"14\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 90,
+    "name": "Timed O",
+    "family": "Abstract O",
+    "description": "The initial becomes an instrument, a route or an interval. Timed O uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M39 27Q18 44 24 75Q30 105 64 105Q101 105 105 67Q109 32 76 24 M64 22V58H99\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"12\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 91,
+    "name": "Trace archive",
+    "family": "Operations & records",
+    "description": "Completed operations leave a structured, durable record. Trace archive uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M24 37H104V105H24Z M19 22H109V37H19Z M46 62H83 M46 82H69\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 92,
+    "name": "Operation layers",
+    "family": "Operations & records",
+    "description": "Completed operations leave a structured, durable record. Operation layers uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<rect x=\"22\" y=\"20\" width=\"63\" height=\"65\" rx=\"8\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\"/><path d=\"M45 85V108H106V43H85 M38 41H66 M38 60H66\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 93,
+    "name": "Immutable trace",
+    "family": "Operations & records",
+    "description": "Completed operations leave a structured, durable record. Immutable trace uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M30 20H82L103 41V107H30Z M82 20V41H103 M44 80H53L62 59 73 90 85 71\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 94,
+    "name": "Observed receipt",
+    "family": "Operations & records",
+    "description": "Completed operations leave a structured, durable record. Observed receipt uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M28 21H100V108L88 99 76 108 64 99 52 108 40 99 28 108Z M45 43H83 M45 62H83 M45 81H63\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 95,
+    "name": "Operation capsule",
+    "family": "Operations & records",
+    "description": "Completed operations leave a structured, durable record. Operation capsule uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<rect x=\"25\" y=\"22\" width=\"78\" height=\"84\" rx=\"25\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\"/><path d=\"M44 44H84 M44 63H68 M44 82H84\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 96,
+    "name": "Three stages",
+    "family": "Operations & records",
+    "description": "Completed operations leave a structured, durable record. Three stages uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<rect x=\"20\" y=\"28\" width=\"22\" height=\"65\" rx=\"5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\"/><rect x=\"53\" y=\"47\" width=\"22\" height=\"46\" rx=\"5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\"/><rect x=\"86\" y=\"66\" width=\"22\" height=\"27\" rx=\"5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\"/><path d=\"M20 108H108\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 97,
+    "name": "Recorded window",
+    "family": "Operations & records",
+    "description": "Completed operations leave a structured, durable record. Recorded window uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M21 27H107V105H21Z M21 47H107 M40 63V88 M59 74V88 M78 57V88 M95 70V88\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 98,
+    "name": "Operation envelope",
+    "family": "Operations & records",
+    "description": "Completed operations leave a structured, durable record. Operation envelope uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M21 41 64 19 107 41V88L64 109 21 88Z M21 41 64 64 107 41 M64 64V109\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M44 31 87 54\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 99,
+    "name": "Private measurement",
+    "family": "Operations & records",
+    "description": "Completed operations leave a structured, durable record. Private measurement uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M27 52H101V106H27Z M43 52V37Q43 17 64 17Q85 17 85 37V52 M43 87V72 M64 87V66 M85 87V77\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  },
+  {
+    "id": 100,
+    "name": "Complete operation",
+    "family": "Operations & records",
+    "description": "Completed operations leave a structured, durable record. Complete operation uses a distinct arrangement of bold geometry for small-size recognition.",
+    "body": "<path d=\"M25 21H81L103 43V107H25Z M81 21V43H103 M42 72 57 87 86 58\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  }
+]
