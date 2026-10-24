@@ -5,7 +5,7 @@ description: Inspect PocketContext request traces, query performance with SQL, c
 
 # ObserveContext
 
-Use `observecontext` relative to this installed skill directory. The standalone launcher requires `uv`, which installs the pinned Python 3.11+ package, plus `OBSERVECONTEXT_URL` and `OBSERVECONTEXT_USER_EMAIL`. Use `login --google` or optional `OBSERVECONTEXT_USER_PASSWORD` for an ordinary user. Do not use superuser credentials or search unrelated files for missing credentials. SSH browser login requires forwarding port 8765.
+Use `observecontext` relative to this installed skill directory. The standalone launcher requires `uv`, which installs the pinned Python 3.11+ package, plus `OBSERVECONTEXT_URL` and `OBSERVECONTEXT_USER_EMAIL`. Use `login --google` or optional `OBSERVECONTEXT_USER_PASSWORD` for an ordinary user. Do not use superuser credentials or search unrelated files for missing credentials. SSH browser login requires forwarding port 8765. The session token is saved with mode 0600 in `$XDG_STATE_HOME/observecontext/` (default `~/.local/state/observecontext/`), or in `OBSERVECONTEXT_SESSION_DIR` when set, so clearing `~/.cache` does not sign you out; a session left in `~/.cache/observecontext/` by an older client is moved there on first use, and `logout` removes both. Keep session files private.
 
 Start with `whoami`, `check` and `recent --pretty`. Use `trace REQUEST_ID --service SERVICE` to inspect one request, `report` for the last 24 hours, and `query SQL` for ad hoc reads. Read [schema](references/schema.md) when composing joins and [examples](references/examples.md) for timing comparisons. The live authenticated schema is authoritative; `references/schema.json` is a checked snapshot.
 

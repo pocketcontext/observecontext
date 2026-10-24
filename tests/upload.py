@@ -39,7 +39,7 @@ class FakeOC:
     def __init__(self, root):
         self.root=root;self.operations={};self.traces={};self.owner='user00000000001';self.fail_after_write=False
         self.TRACE_FIELDS=oc.TRACE_FIELDS;self.literal=oc.literal;self.records=oc.records;self.canonical=oc.canonical
-    def cache_file(self,cfg):return self.root/'session.json'
+    def cache_dir(self):return self.root
     def load_session(self,cfg):
         encoded=base64.urlsafe_b64encode(json.dumps({'id':self.owner}).encode()).decode().rstrip('=')
         return {'token':'header.'+encoded+'.signature'}

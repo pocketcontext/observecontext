@@ -16,7 +16,7 @@ PocketBase's existing default `users` collection serves humans and their agents.
 
 ## Collect and inspect
 
-Copy `skills/observecontext/` anywhere, or install it from this repository. The executable requires `uv` and resolves a Python 3.11+ package pinned to a full Git commit; initial installation needs network access. Set `OBSERVECONTEXT_URL` and `OBSERVECONTEXT_USER_EMAIL`; then run `observecontext login --google`. Optional `OBSERVECONTEXT_USER_PASSWORD` supports provisioned ordinary accounts. The examples below assume the repository root; use the installed script's absolute path elsewhere.
+Copy `skills/observecontext/` anywhere, or install it from this repository. The executable requires `uv` and resolves a Python 3.11+ package pinned to a full Git commit; initial installation needs network access. Set `OBSERVECONTEXT_URL` and `OBSERVECONTEXT_USER_EMAIL`; then run `observecontext login --google`. Optional `OBSERVECONTEXT_USER_PASSWORD` supports provisioned ordinary accounts. The CLI session is saved privately in `$XDG_STATE_HOME/observecontext/` (default `~/.local/state/observecontext/`), or in `OBSERVECONTEXT_SESSION_DIR` when set; a session in the old `~/.cache/observecontext/` location is moved there on first use, and `logout` removes both. The examples below assume the repository root; use the installed script's absolute path elsewhere.
 
 ```sh
 ./skills/observecontext/observecontext login --google

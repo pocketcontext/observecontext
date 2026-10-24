@@ -72,17 +72,35 @@ def config(names=ENV[:2]):
     return {'url': url, 'email': os.environ[ENV[1]], 'password': hide(os.environ.get(ENV[2]))}
 
 
-# Token cache: one file per server URL and email, readable only by the current user.
+# Session file: one per server URL and email, readable only by the current user. It lives in
+# the XDG state folder, not the cache, so clearing ~/.cache does not sign the user out (ENG-55).
 
-def cache_file(cfg):
+def session_name(cfg):
+    return hashlib.sha256((cfg['url'] + '\n' + cfg['email']).encode()).hexdigest()[:32] + '.json'
+
+
+def session_file(cfg):
+    folder = os.environ.get('OBSERVECONTEXT_SESSION_DIR')
+    if not folder:
+        state = os.environ.get('XDG_STATE_HOME') or str(Path.home() / '.local' / 'state')
+        folder = str(Path(state) / 'observecontext')
+    return Path(folder) / session_name(cfg)
+
+
+def cache_dir():
+    """The cache folder; it still holds the pending telemetry queue."""
     base = os.environ.get('XDG_CACHE_HOME') or str(Path.home() / '.cache')
-    key = hashlib.sha256((cfg['url'] + '\n' + cfg['email']).encode()).hexdigest()[:32]
-    return Path(base) / 'observecontext' / (key + '.json')
+    return Path(base) / 'observecontext'
 
 
-def load_session(cfg):
+def legacy_session_file(cfg):
+    """Where clients before ENG-55 kept the session; read once and moved."""
+    return cache_dir() / session_name(cfg)
+
+
+def read_session(cfg, path):
     try:
-        session = json.loads(cache_file(cfg).read_text())
+        session = json.loads(path.read_text())
         if not isinstance(session, dict) or session.get('url') != cfg['url'] or session.get('email') != cfg['email']:
             return None
         return session if isinstance(session.get('token'), str) and hide(session['token']) else None
@@ -90,8 +108,19 @@ def load_session(cfg):
         return None
 
 
+def load_session(cfg):
+    path = session_file(cfg)
+    if path.exists():
+        return read_session(cfg, path)
+    legacy = legacy_session_file(cfg)
+    session = read_session(cfg, legacy)
+    if session is not None and save_session(cfg, session):
+        legacy.unlink(missing_ok=True)
+    return session
+
+
 def save_session(cfg, session):
-    path = cache_file(cfg)
+    path = session_file(cfg)
     try:
         path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         os.chmod(path.parent, 0o700)
@@ -100,8 +129,10 @@ def save_session(cfg, session):
             os.fchmod(handle.fileno(), 0o600)
             json.dump(session, handle)
         os.replace(temporary, path)
+        return True
     except OSError as error:
-        say(f'note: token not cached ({error.strerror}); sign-in will be required again')
+        say(f'note: session not saved ({error.strerror}); sign-in will be required again')
+        return False
 
 
 # HTTP
@@ -555,7 +586,8 @@ def run(args):
         return capture.run(args)
     cfg = config()
     if args.command == 'logout':
-        cache_file(cfg).unlink(missing_ok=True)
+        session_file(cfg).unlink(missing_ok=True)
+        legacy_session_file(cfg).unlink(missing_ok=True)
         return 0
     if args.command == 'login':
         google_login(cfg, args.port, args.timeout)

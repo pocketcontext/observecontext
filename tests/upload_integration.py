@@ -45,7 +45,7 @@ def main():
             with http.server.ThreadingHTTPServer(('127.0.0.1',0),Proxy) as proxy:
                 worker=threading.Thread(target=proxy.serve_forever,daemon=True);worker.start()
                 try:
-                    env={**os.environ,'PYTHONPATH':str(ROOT/'src'),'XDG_CACHE_HOME':str(tmp/'cache'),'OBSERVECONTEXT_URL':f'http://127.0.0.1:{proxy.server_port}',
+                    env={**{k:v for k,v in os.environ.items() if k!='OBSERVECONTEXT_SESSION_DIR'},'PYTHONPATH':str(ROOT/'src'),'XDG_CACHE_HOME':str(tmp/'cache'),'XDG_STATE_HOME':str(tmp/'state'),'OBSERVECONTEXT_URL':f'http://127.0.0.1:{proxy.server_port}',
                          'OBSERVECONTEXT_USER_EMAIL':'one@example.test','OBSERVECONTEXT_USER_PASSWORD':'SyntheticUserPassword123!',
                          'SOURCE_URL':source.base_url,'SOURCE_TOKEN':identities[0]}
                     cli=ROOT/'src/observecontext_client/cli.py'

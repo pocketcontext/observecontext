@@ -45,7 +45,7 @@ def main():
                 for request in [source,destination]:
                     admin=request('POST','/api/collections/_superusers/auth-with-password',{'identity':'admin@example.com','password':'SyntheticAdminPassword123!'})['token']
                     request('POST','/api/collections/users/records',{'email':'skill@example.com','name':'Synthetic tracing','password':'SyntheticSkillPassword123!','passwordConfirm':'SyntheticSkillPassword123!'},admin)
-                env={**os.environ,'PYTHONPATH':str(ROOT/'src'),'XDG_CACHE_HOME':str(temp/'cache'),'OBSERVECONTEXT_URL':base,'OBSERVECONTEXT_USER_EMAIL':'skill@example.com','OBSERVECONTEXT_USER_PASSWORD':'SyntheticSkillPassword123!'}
+                env={**{k:v for k,v in os.environ.items() if k!='OBSERVECONTEXT_SESSION_DIR'},'PYTHONPATH':str(ROOT/'src'),'XDG_CACHE_HOME':str(temp/'cache'),'XDG_STATE_HOME':str(temp/'state'),'OBSERVECONTEXT_URL':base,'OBSERVECONTEXT_USER_EMAIL':'skill@example.com','OBSERVECONTEXT_USER_PASSWORD':'SyntheticSkillPassword123!'}
                 captured=temp/'client.jsonl'
                 # Synthetic source uses the same explicit hook as packaged apps.
                 script=temp/'source_client.py'

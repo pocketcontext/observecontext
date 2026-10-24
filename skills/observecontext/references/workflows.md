@@ -8,7 +8,7 @@ Run `/skill/observecontext recent --pretty`, then `trace REQUEST_ID --service SE
 
 ## Capture and upload
 
-Log in to the source app with its own skill first. Separately configure ObserveContext's URL/user and sign in with `observecontext login --google` or an ordinary password account. Its cached identity binds the local telemetry queue.
+Log in to the source app with its own skill first. Separately configure ObserveContext's URL/user and sign in with `observecontext login --google` or an ordinary password account. Its saved identity binds the local telemetry queue.
 
 ```sh
 /skill/observecontext capture --url https://app.example.com \

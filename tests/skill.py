@@ -40,7 +40,7 @@ def main():
             source=(ROOT/'skills/observecontext/observecontext').read_text()
             source=re.sub(r'# observecontext-client = .*', '# observecontext-client = { path = '+json.dumps(str(wheel))+' }', source)
         launcher.write_text(source);launcher.chmod(0o755)
-        env={**os.environ,'UV_NO_CONFIG':'1','UV_CACHE_DIR':str(Path(tmp)/'uv-cache'),'XDG_CACHE_HOME':str(Path(tmp)/'cache'),'OBSERVECONTEXT_URL':request.base_url,'OBSERVECONTEXT_USER_EMAIL':'skill@example.com','OBSERVECONTEXT_USER_PASSWORD':password}
+        env={**{k:v for k,v in os.environ.items() if k!='OBSERVECONTEXT_SESSION_DIR'},'UV_NO_CONFIG':'1','UV_CACHE_DIR':str(Path(tmp)/'uv-cache'),'XDG_CACHE_HOME':str(Path(tmp)/'cache'),'XDG_STATE_HOME':str(Path(tmp)/'state'),'OBSERVECONTEXT_URL':request.base_url,'OBSERVECONTEXT_USER_EMAIL':'skill@example.com','OBSERVECONTEXT_USER_PASSWORD':password}
         def cli(*argv,expected=0):
             result=subprocess.run(['uv','run','--script',str(launcher),*argv],env=env,cwd=tmp,capture_output=True,text=True)
             assert password not in result.stdout+result.stderr and token not in result.stdout+result.stderr

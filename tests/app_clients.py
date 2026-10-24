@@ -46,7 +46,7 @@ def main():
   tmp=Path(path)
   with server('observecontext',tmp) as (dest,query,token,_):
    env={k:v for k,v in os.environ.items() if not k.startswith(tuple(a.upper()+'_' for a in [*APPS,'observecontext']))}
-   env.update(HOME=str(tmp/'home'),XDG_CACHE_HOME=str(tmp/'cache'),OBSERVECONTEXT_URL=dest,OBSERVECONTEXT_USER_EMAIL='client@example.test',OBSERVECONTEXT_USER_PASSWORD='SyntheticClientPassword123!')
+   env.update(HOME=str(tmp/'home'),XDG_CACHE_HOME=str(tmp/'cache'),XDG_STATE_HOME=str(tmp/'state'),OBSERVECONTEXT_URL=dest,OBSERVECONTEXT_USER_EMAIL='client@example.test',OBSERVECONTEXT_USER_PASSWORD='SyntheticClientPassword123!')
    # Independent package environments exercise dependencies rather than sys.path injection.
    executables={}
    for app in ['observecontext', *args.apps]:

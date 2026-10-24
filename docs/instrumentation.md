@@ -60,7 +60,7 @@ Mappings accept HTTP(S) origins only, with no credentials, path, query or fragme
 
 Completed pairs are atomically persisted in a private local queue before upload. Default location is `$XDG_CACHE_HOME/observecontext/pending/<account-key>` (or `~/.cache`), capped at 16 MiB per account. Files have mode 0600 and contain no authentication tokens. Stable operation keys and trace IDs permit exact-content replay after uncertain network responses. Identifiers are scoped by the authenticated owner, including when a broad viewer uploads data.
 
-The wrapper uses a cached ObserveContext identity, or briefly authenticates if none exists. If no identity can be established, it warns and runs the source command; sign in first to enable durable telemetry. Delivery failures do not change the source command's exit status. Source trace retrieval has a 1.5-second request deadline; final upload defaults to a 10-second total deadline with individual HTTP calls bounded to two seconds. `--flush-timeout` changes the final bound.
+The wrapper uses the saved ObserveContext session (see the README for its location), or briefly authenticates if none exists. If no identity can be established, it warns and runs the source command; sign in first to enable durable telemetry. Delivery failures do not change the source command's exit status. Source trace retrieval has a 1.5-second request deadline; final upload defaults to a 10-second total deadline with individual HTTP calls bounded to two seconds. `--flush-timeout` changes the final bound.
 
 ```sh
 /skill/observecontext flush

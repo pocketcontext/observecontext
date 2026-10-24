@@ -34,7 +34,7 @@ class Delivery:
             self.authenticate()
         self.account = {'url': cfg['url'], 'email': cfg['email'].casefold(), 'id': self.owner}
         key = hashlib.sha256(json.dumps(self.account, sort_keys=True).encode()).hexdigest()[:32]
-        base = Path(spool) if spool else oc.cache_file(cfg).parent / 'pending'
+        base = Path(spool) if spool else oc.cache_dir() / 'pending'
         self.directory = base / key
         self.directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.directory.is_symlink():
