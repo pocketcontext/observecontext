@@ -61,7 +61,7 @@ class DeploymentTests(unittest.TestCase):
                 executable.chmod(0o700)
             env = dict(os.environ, HOME=str(root), PATH=str(root) + ':' + os.environ['PATH'],
                        SYNTHETIC_CALLS=str(calls), FAILING_TOOL=failing_tool, SSH_PRIVATE_KEY='synthetic-private-key',
-                       SSH_KNOWN_HOSTS=known_hosts, SERVER_USER='deploy',
+                       SSH_KNOWN_HOSTS=known_hosts, SERVER_USER='ubuntu',
                        SERVER_IP='192.0.2.1')
             result = subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', script(name)],
                                     env=env, text=True, capture_output=True, timeout=10)
@@ -81,7 +81,7 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(hosts, 'synthetic-pinned-host-key\n')
         self.assertEqual([event for event in calls if event[0] == 'ssh'], [
-            ['ssh', '-T', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', 'deploy@192.0.2.1']])
+            ['ssh', '-T', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', 'ubuntu@192.0.2.1']])
         self.assertNotIn('synthetic-private-key', result.stdout + result.stderr)
         self.assertNotIn('ssh-keyscan', script('Deploy via SSH'))
 
@@ -102,17 +102,10 @@ class DeploymentTests(unittest.TestCase):
                 result, _, _ = self.run_step(step, failing_tool=tool)
                 self.assertEqual(result.returncode, 17)
 
-    def test_retired_commands_fail_closed_with_guidance(self):
+    def test_retired_old_host_commands_are_removed(self):
         for filename in ('install.py', f'deploy-{APP}.py'):
-            for extra in ([], ['unexpected-target']):
-                with self.subTest(filename=filename, extra=extra):
-                    result = subprocess.run([sys.executable, '-I', str(ROOT / 'deploy' / filename), *extra],
-                                            env={'PATH': '/nonexistent'}, capture_output=True, text=True)
-                    self.assertNotEqual(result.returncode, 0)
-                    self.assertIn('once-pocketcontext-v2', result.stderr)
-                    self.assertIn('retired', result.stderr)
-                    self.assertEqual(result.stdout, '')
-
+            with self.subTest(filename=filename):
+                self.assertFalse((ROOT / 'deploy' / filename).exists())
 
     def test_application_and_container_checks_cover_both_architectures(self):
         application = (ROOT / '.github/workflows/test.yml').read_text()

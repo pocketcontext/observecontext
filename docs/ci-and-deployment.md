@@ -24,24 +24,27 @@ in addition to branch, pause and profile checks. No GitHub deployment environmen
 or source-host credentials should be recreated by routine CI. Prepared file and
 replica buckets remain for a separately authorized fresh deployment.
 
-Deployment sends no caller-selected remote command or registry credentials.
-Strict host-key checking and a dedicated forced-command key select the permitted
-application. The shared `once-pocketcontext-v2` dispatcher resolves the configured
-image to an immutable digest, takes the host/application deployment lock, refuses
-pending recovery state, disables the old writer's restart policy, and requires a
-clean stop before replacement. The maintained policy uses a 300-second grace
-period and disables ONCE's independent automatic image updates. It preserves
-named volumes and verifies the replacement. It does not automatically roll back.
+A separately authorized deployment would use the `pocketdeploy-v2` scaffold:
+`colors.yml` would run `:latest` with `github:` delivery, which creates the
+`pocketdeploy-v2` environment named by `COLORS_PROFILE`. Deployment then sends no
+caller-selected remote command or registry credentials. Strict host-key checking
+and a dedicated forced-command key select the permitted application.
+PocketDeploy's per-repository handler takes the host deployment lock and converges
+only this application from its configured image, recording the immutable digest.
+A `stop-first` strategy stops the old writer cleanly before starting the
+replacement, ONCE's independent automatic image updates stay disabled, named
+volumes are preserved and the replacement is health-checked. It does not
+automatically roll back.
 
 Workflow health checks prove HTTP/database availability, not the exact deployed
-source revision, data equivalence, or backup durability. The shared dispatcher
+source revision, data equivalence, or backup durability. The handler
 resolves `latest` when it runs; the commandless SSH contract does not carry the
 workflow's digest. Record independent runtime revision evidence when releasing.
 Host-local locks are not distributed fencing, and Litestream remains asynchronous.
 
-Old `deploy/install.py`, app-local deployment wrappers and any old bootstrap
-commands fail closed. They must not overwrite shared authorized keys or restart
-retained source state. New deployment provisioning, storage creation and DNS
+ObserveContext's old-host `deploy/install.py` and app-local deployment wrapper are
+removed. Do not recreate them: they must not overwrite shared authorized keys or
+restart retained source state. New deployment provisioning, storage creation and DNS
 changes require a separate explicitly authorized operation. Container `init` is
 only for a genuinely fresh installation, never an existing volume or replica.
 
