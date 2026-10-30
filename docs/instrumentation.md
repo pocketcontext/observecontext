@@ -20,7 +20,7 @@ An authenticated ordinary user's request must send `X-Context-Trace: 1` to opt i
 
 The buffer retains traces for at most 120 seconds, with global and per-account count/byte bounds. Restart, expiry and overflow lose buffered telemetry. It is diagnostic data, not durable audit history. Keep ObserveContext's own tracing disabled.
 
-Measured phases include `auth`, `sql.prepare`, `sql.execute`, `sql.scan`, `response.encode`, and filtered-snapshot `snapshot.wait`, `snapshot.build`, `snapshot.reader_init`. SQLite work includes query scanning, not only `sql.execute`. REST currently supplies total server time rather than individual domain hooks. Overlapping spans must not be summed.
+Measured phases include `auth`, `sql.prepare`, `sql.execute`, `sql.scan`, `response.encode`, and filtered-snapshot `snapshot.wait` and `snapshot.acquire` (version check, cache lookup and shared-build waiting), plus `snapshot.build` and `snapshot.reader_init` on a cache miss only. SQLite work includes query scanning, not only `sql.execute`. REST currently supplies total server time rather than individual domain hooks. Overlapping spans must not be summed.
 
 ## Capture and upload
 

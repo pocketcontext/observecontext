@@ -59,6 +59,7 @@ Use synthetic data and isolated temporary databases. Install the locked browser 
 
 ```sh
 python3 tests/integration.py --binary /absolute/path/to/pinned/pocketcontext
+python3 tests/snapshot_freshness.py --binary /absolute/path/to/pinned/pocketcontext
 python3 tests/migration.py --binary /absolute/path/to/pinned/pocketcontext
 python3 tests/auth.py --binary /absolute/path/to/pinned/pocketcontext
 python3 tests/oauth_integration.py --binary /absolute/path/to/pinned/pocketcontext
@@ -75,6 +76,8 @@ python3 tests/deploy_workflow.py
 python3 tests/dashboard_hosted.py --binary /absolute/path/to/pinned/pocketcontext
 ```
 
+`snapshot_freshness.py` proves that a requester's SQL snapshot is reused while the database is unchanged and that ingestion, read-all grants and revocations and disablement are visible on the next read without cross-owner leakage. The pinned server's synchronous snapshots are invalidated by any committed write; background snapshots, `trackChanges` and `maxConcurrentPerRequester` are deliberately not configured, because background reads are eventually consistent and per-account admission would reject concurrent sessions with HTTP 429. With 2,000 synthetic traces of eight spans each, a read-all viewer's cold read took about 470 ms and a warm read about 4 ms locally.
+
 With sibling application checkouts available, run the optional cross-application acceptance suite against their current configurations and actual portable clients:
 
 ```sh
@@ -87,7 +90,7 @@ Container configuration, persistence and populated restore tests gate publicatio
 
 ## Scope and limits
 
-The initial server instrumentation measures authentication; SQL preparation, execution and result scanning; filtered snapshot waiting, construction and reader setup; and SQL result encoding. REST requests have total server duration, without separate domain-hook or transaction measurements. The client wrapper adds HTTP time including response consumption. It launches packaged Context commands normally; each source package explicitly activates its installed instrumentation library. Unsupported commands run but report that capture was not confirmed. Other networking libraries are outside coverage.
+The initial server instrumentation measures authentication; SQL preparation, execution and result scanning; filtered snapshot waiting and acquisition, plus construction and reader setup on a cache miss; and SQL result encoding. REST requests have total server duration, without separate domain-hook or transaction measurements. The client wrapper adds HTTP time including response consumption. It launches packaged Context commands normally; each source package explicitly activates its installed instrumentation library. Unsupported commands run but report that capture was not confirmed. Other networking libraries are outside coverage.
 
 SQL capture is explicit and capped at 16 KiB; SQL literals may contain private data; the uploader and operator-authorized broad viewers can read captured text. Headers, credentials, URL queries, REST bodies and query result values are excluded. No coding-agent prompt or full agent session is collected. Caching, DuckDB and materialized views remain future decisions informed by these measurements.
 

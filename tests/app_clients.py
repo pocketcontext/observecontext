@@ -81,7 +81,8 @@ def main():
      assert all(r[3]==200 for r in rows)
      if 'snapshot' in cfg:
       spans=query('POST','/api/context/query',{'sql':f"SELECT s.name FROM spans s JOIN traces t ON t.id=s.trace WHERE t.service='{app}'"},token)['rows']
-      assert {'snapshot.wait','snapshot.build','snapshot.reader_init'}<={r[0] for r in spans},(app,spans)
+      # Reused snapshots omit build phases; every filtered read measures waiting and acquisition.
+      assert {'snapshot.wait','snapshot.acquire'}<={r[0] for r in spans},(app,spans)
      if app=='taskcontext':
       wrapped=[oc,'capture','--url',base,'--service',app+'.client','--upload','--',client]
       command(wrapped+['create','projects',json.dumps({'key':'TRACE','name':'Synthetic private payload'})])

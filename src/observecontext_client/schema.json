@@ -157,6 +157,7 @@
   },
   "snapshotLimits": {
     "maxConcurrent": 4,
+    "maxConcurrentPerRequester": 0,
     "timeoutMs": 5000,
     "maxRows": 100000,
     "maxBytes": 16777216

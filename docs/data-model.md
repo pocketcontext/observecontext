@@ -47,7 +47,10 @@ Traces and spans are immutable through REST, including maintenance credentials. 
 ## Access and lifecycle
 
 SQL exports explicit columns from operations, traces, spans and the safe user
-directory using a fresh requester-filtered snapshot. REST list/view and realtime
+directory using a requester-filtered snapshot. The pinned server reuses a
+requester's copy only while the source database is unchanged; any committed
+write, including ingestion and read-all or disabled changes, invalidates every
+retained copy before the next read. REST list/view and realtime
 enforce ownership independently. Operation ownership is stamped from the
 authenticated identity; `user_id`, service, correlation and client keys are not
 proof of identity. Spans inherit visibility from their parent trace.

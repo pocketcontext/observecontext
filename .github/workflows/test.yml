@@ -56,6 +56,8 @@ jobs:
         run: CGO_ENABLED=1 go build -tags sqlite_math_functions -o bin/pocketcontext ./cmd/pocketcontext
       - name: Test trace ingestion and analysis
         run: python3 observecontext/tests/integration.py --binary pocketcontext/bin/pocketcontext
+      - name: Test snapshot reuse read-after-write and privacy
+        run: python3 observecontext/tests/snapshot_freshness.py --binary pocketcontext/bin/pocketcontext
       - name: Test migration of existing private operations
         run: python3 observecontext/tests/migration.py --binary pocketcontext/bin/pocketcontext
       - name: Test authentication and deployment settings
