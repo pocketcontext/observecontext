@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Command-line client for a ObserveContext observability server. Python 3 standard library only.
 
-Configuration comes from three environment variables:
+Connection settings come from CLI options, environment variables, then saved defaults:
   OBSERVECONTEXT_URL             server address, for example https://observe.example.com
   OBSERVECONTEXT_USER_EMAIL     email of an account in the `users` collection
   OBSERVECONTEXT_USER_PASSWORD  password of that account (optional with Google login)
@@ -19,6 +19,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import stat
 import sys
 import tempfile
 import time
@@ -59,17 +60,105 @@ def dump(data, pretty=False):
     return json.dumps(data, separators=(',', ':'), ensure_ascii=False)
 
 
-def config(names=ENV[:2]):
-    missing = [name for name in names if not os.environ.get(name)]
-    if missing:
-        raise Fail(2, 'missing environment variable: ' + ', '.join(missing) + '. Ask the user to set every missing variable; do not look for credentials elsewhere.')
-    url = os.environ[ENV[0]].rstrip('/')
-    parsed = urllib.parse.urlsplit(url)
+def config(args=None):
+    url = getattr(args, 'connection_url', None) or os.environ.get(ENV[0])
+    email = getattr(args, 'connection_email', None) or os.environ.get(ENV[1])
+    saved = read_default() if not (url and email) else {}
+    url = (url or saved.get('url') or '').rstrip('/')
+    email = email or saved.get('email') or ''
+    password = os.environ.get(ENV[2])
+    if not url or not email:
+        raise Fail(2, 'Configure observecontext with login --url URL --email EMAIL, or set ' + ', '.join(ENV[:2]))
+    if any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in url):
+        raise Fail(2, '--url cannot contain whitespace or control characters')
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        parsed.port
+    except ValueError:
+        raise Fail(2, '--url must have a valid host and port') from None
     if parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
-        raise Fail(2, 'OBSERVECONTEXT_URL must be an HTTP(S) URL without credentials, query, or fragment')
+        raise Fail(2, '--url must be an HTTP(S) URL without credentials, query, or fragment')
     if parsed.scheme == 'http' and parsed.hostname not in ('localhost', '127.0.0.1', '::1'):
         raise Fail(2, 'Use HTTPS for a remote ObserveContext server')
-    return {'url': url, 'email': os.environ[ENV[1]], 'password': hide(os.environ.get(ENV[2]))}
+    if not isinstance(email, str) or not email.strip() or '@' not in email or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in email):
+        raise Fail(2, '--email must be a nonempty account email without whitespace')
+    return {'url': url, 'email': email, 'password': hide(password)}
+
+
+def state_dir():
+    folder = os.environ.get('OBSERVECONTEXT_SESSION_DIR')
+    return Path(folder) if folder else Path(os.environ.get('XDG_STATE_HOME') or Path.home() / '.local' / 'state') / 'observecontext'
+
+
+def default_file():
+    return state_dir() / 'default.json'
+
+
+def private_json(path):
+    """Read only a private regular file, never a symlink or another user's state."""
+    parent = path.parent.lstat()
+    if not stat.S_ISDIR(parent.st_mode) or parent.st_uid != os.getuid() or stat.S_IMODE(parent.st_mode) != 0o700:
+        raise ValueError('unsafe state directory')
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd) as handle:
+        info = os.fstat(handle.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600 or info.st_size > 65536:
+            raise ValueError('unsafe state file')
+        return json.load(handle)
+
+
+def read_default():
+    try:
+        value = private_json(default_file())
+        if not isinstance(value, dict) or set(value) != {'url', 'email'} or not all(isinstance(value[k], str) and value[k] for k in value):
+            raise ValueError('invalid default')
+        return value
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError, TypeError):
+        raise Fail(2, 'Cannot read private default.json; remove or repair it before continuing.') from None
+
+
+def write_private(path, value):
+    temporary = None
+    try:
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        info = path.parent.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o700:
+            raise OSError('unsafe state directory')
+        with tempfile.NamedTemporaryFile(mode='w', dir=path.parent, prefix='.session-', delete=False) as handle:
+            temporary = Path(handle.name)
+            os.fchmod(handle.fileno(), 0o600)
+            json.dump(value, handle)
+        os.replace(temporary, path)
+        return True
+    except OSError:
+        say('note: private session settings could not be saved; check the state directory permissions')
+        return False
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def save_default(cfg, session):
+    saved = load_session(cfg)
+    if not saved or saved.get('token') != session.get('token'):
+        raise Fail(1, 'Login succeeded but the session was not saved; default unchanged.')
+    if not write_private(default_file(), {k: cfg[k] for k in ('url', 'email')}):
+        raise Fail(1, 'Login succeeded but default settings were not saved.')
+
+
+def logout(cfg, forget=False):
+    session_file(cfg).unlink(missing_ok=True)
+    if forget and read_default() == {k: cfg[k] for k in ('url', 'email')}:
+        default_file().unlink(missing_ok=True)
+
+
+def connection_options(parser, url=True, email=True):
+    if url:
+        parser.add_argument('--url', dest='connection_url', default=argparse.SUPPRESS, help='application server URL (overrides environment and saved default)')
+    if email:
+        parser.add_argument('--email', dest='connection_email', default=argparse.SUPPRESS, help='account email (overrides environment and saved default)')
 
 
 # Session file: one per server URL and email, readable only by the current user. It lives in
@@ -80,11 +169,7 @@ def session_name(cfg):
 
 
 def session_file(cfg):
-    folder = os.environ.get('OBSERVECONTEXT_SESSION_DIR')
-    if not folder:
-        state = os.environ.get('XDG_STATE_HOME') or str(Path.home() / '.local' / 'state')
-        folder = str(Path(state) / 'observecontext')
-    return Path(folder) / session_name(cfg)
+    return state_dir() / session_name(cfg)
 
 
 def cache_dir():
@@ -93,14 +178,9 @@ def cache_dir():
     return Path(base) / 'observecontext'
 
 
-def legacy_session_file(cfg):
-    """Where clients before ENG-55 kept the session; read once and moved."""
-    return cache_dir() / session_name(cfg)
-
-
 def read_session(cfg, path):
     try:
-        session = json.loads(path.read_text())
+        session = private_json(path)
         if not isinstance(session, dict) or session.get('url') != cfg['url'] or session.get('email') != cfg['email']:
             return None
         return session if isinstance(session.get('token'), str) and hide(session['token']) else None
@@ -109,30 +189,11 @@ def read_session(cfg, path):
 
 
 def load_session(cfg):
-    path = session_file(cfg)
-    if path.exists():
-        return read_session(cfg, path)
-    legacy = legacy_session_file(cfg)
-    session = read_session(cfg, legacy)
-    if session is not None and save_session(cfg, session):
-        legacy.unlink(missing_ok=True)
-    return session
+    return read_session(cfg, session_file(cfg))
 
 
 def save_session(cfg, session):
-    path = session_file(cfg)
-    try:
-        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        os.chmod(path.parent, 0o700)
-        with tempfile.NamedTemporaryFile(mode='w', dir=path.parent, prefix='.session-', delete=False) as handle:
-            temporary = Path(handle.name)
-            os.fchmod(handle.fileno(), 0o600)
-            json.dump(session, handle)
-        os.replace(temporary, path)
-        return True
-    except OSError as error:
-        say(f'note: session not saved ({error.strerror}); sign-in will be required again')
-        return False
+    return write_private(session_file(cfg), session)
 
 
 # HTTP
@@ -176,6 +237,11 @@ def login(cfg):
     status, data = send(cfg, 'POST', '/api/collections/users/auth-with-password', {'identity': cfg['email'], 'password': cfg['password']})
     if status != 200 or not isinstance(data, dict) or 'token' not in data:
         raise Fail(1, f'login as {cfg["email"]} failed: HTTP {status}\n{dump(data)}\nCheck the three OBSERVECONTEXT_ variables with the user. User credentials only.')
+    record = data.get('record')
+    if (not isinstance(data.get('token'), str) or not data['token'] or not isinstance(record, dict)
+            or record.get('collectionName') != 'users' or not record.get('id')
+            or not isinstance(record.get('email'), str) or record['email'].casefold() != cfg['email'].casefold()):
+        raise Fail(1, 'Authentication returned an unexpected identity; no session saved.')
     session = {'url': cfg['url'], 'email': cfg['email'], 'token': hide(data['token'])}
     save_session(cfg, session)
     return session
@@ -584,13 +650,13 @@ def run(args):
     if args.command == 'capture':
         from . import capture
         return capture.run(args)
-    cfg = config()
+    cfg = config(args=args)
     if args.command == 'logout':
-        session_file(cfg).unlink(missing_ok=True)
-        legacy_session_file(cfg).unlink(missing_ok=True)
+        logout(cfg, args.forget)
         return 0
     if args.command == 'login':
-        google_login(cfg, args.port, args.timeout)
+        result = google_login(cfg, args.port, args.timeout) if args.google else login(cfg)
+        save_default(cfg, result)
         say(f'Signed in as {cfg["email"]} at {cfg["url"]}', sys.stdout)
         return 0
     if args.command == 'check':
@@ -638,7 +704,9 @@ def parse(argv):
     def add(name, help):
         return commands.add_parser(name, parents=[pretty], help=help)
     login_parser = add('login', 'Google browser login with a loopback callback')
-    login_parser.add_argument('--google', action='store_true', required=True)
+    modes = login_parser.add_mutually_exclusive_group(required=True)
+    modes.add_argument('--google', action='store_true')
+    modes.add_argument('--password', action='store_true', help='use password from environment')
     login_parser.add_argument('--port', type=int, default=8765)
     login_parser.add_argument('--timeout', type=int, default=180)
     for name in ('whoami', 'logout', 'schema', 'check', 'report'):
@@ -670,6 +738,10 @@ def parse(argv):
     capture_parser.add_argument('--capture-sql', action='store_true')
     capture_parser.add_argument('executable', help='Context executable to run after --')
     capture_parser.add_argument('arguments', nargs=argparse.REMAINDER)
+    connection_options(parser)
+    for name, command in commands.choices.items():
+        connection_options(command, url='--url' not in command._option_string_actions, email='--email' not in command._option_string_actions)
+    commands.choices['logout'].add_argument('--forget', action='store_true', help='also forget matching saved defaults')
     args = parser.parse_args(argv)
     args.pretty = getattr(args, 'pretty', False)
     return args

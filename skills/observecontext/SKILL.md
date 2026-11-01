@@ -5,7 +5,7 @@ description: Inspect PocketContext request traces, query performance with SQL, c
 
 # ObserveContext
 
-Use `observecontext` relative to this installed skill directory. The standalone launcher requires `uv`, which installs the pinned Python 3.11+ package, plus `OBSERVECONTEXT_URL` and `OBSERVECONTEXT_USER_EMAIL`. Use `login --google` or optional `OBSERVECONTEXT_USER_PASSWORD` for an ordinary user. Do not use superuser credentials or search unrelated files for missing credentials. SSH browser login requires forwarding port 8765. The session token is saved with mode 0600 in `$XDG_STATE_HOME/observecontext/` (default `~/.local/state/observecontext/`), or in `OBSERVECONTEXT_SESSION_DIR` when set, so clearing `~/.cache` does not sign you out; a session left in `~/.cache/observecontext/` by an older client is moved there on first use, and `logout` removes both. Keep session files private.
+Use `observecontext` relative to this installed skill directory. The standalone launcher requires `uv`, which installs the pinned Python 3.11+ package. Configure it with `login --url URL --email EMAIL` and an authentication mode. Use `login --google` or optional `OBSERVECONTEXT_USER_PASSWORD` for an ordinary user. Do not use superuser credentials or search unrelated files for missing credentials. SSH browser login requires forwarding port 8765. The session token is saved with mode 0600 in `$XDG_STATE_HOME/observecontext/` (default `~/.local/state/observecontext/`), or in `OBSERVECONTEXT_SESSION_DIR` when set, so clearing `~/.cache` does not sign you out. Keep session files private.
 
 Start with `whoami`, `check` and `recent --pretty`. Use `trace REQUEST_ID --service SERVICE` to inspect one request, `report` for the last 24 hours, and `query SQL` for ad hoc reads. Read [schema](references/schema.md) when composing joins and [examples](references/examples.md) for timing comparisons. The live authenticated schema is authoritative; `references/schema.json` is a checked snapshot.
 
@@ -26,3 +26,11 @@ Open the configured ObserveContext server's root URL for the authenticated hoste
 ## Browser links
 
 When reporting measured evidence, use the configured `OBSERVECONTEXT_URL` origin (without its trailing slash) plus `/dashboard#/operations/<operation-id>` or `/dashboard#/traces/<trace-record-id>`. A trace record ID is distinct from its producer `request_id`; query the actual record identity. Individual traces are immutable, while more measurements can join an operation. There is no operation snapshot URL. Links preserve the viewer's existing ownership/read-all permissions and never grant access; correlation IDs do not confer ownership. Never include credentials, private loopback dashboard keys or captured SQL text in the URL.
+
+## Saved CLI login settings
+
+Run `observecontext login --url https://server.example.com --email you@example.com --google`. Successful explicit login writes `default.json` containing only the URL and email alongside the per-server/account token files in `$XDG_STATE_HOME/observecontext/` (default `~/.local/state/observecontext/`), or `OBSERVECONTEXT_SESSION_DIR`. Directories are mode 0700; files are mode 0600. Later commands need no URL/email exports. Passwords remain outside these files.
+
+Connection options override `OBSERVECONTEXT_URL` / `OBSERVECONTEXT_USER_EMAIL`, which override saved defaults. Put `--url` and `--email` before any command, or after a command unless that command already uses the option for a domain value. Only successful explicit login changes the default; ordinary commands, refreshes and failed login do not. `logout` removes the selected token and retains defaults; `logout --forget` also removes the default when it matches that account/server. Old cache sessions are not migrated; sign in again.
+
+For capture, a global `--url` selects the ObserveContext destination; `capture --url` continues to select the source application. Saved destination settings also work with capture.

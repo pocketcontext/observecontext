@@ -109,7 +109,12 @@ def capture_origins(args):
             raise ValueError('capture origins and their client service labels must be distinct')
         targets[key] = (label, url.rstrip('/'))
         services.add(label)
-    destination = os.environ.get('OBSERVECONTEXT_URL')
+    from . import cli as oc
+    try:
+        destination = (getattr(args, 'connection_url', None) or os.environ.get('OBSERVECONTEXT_URL')
+                       or oc.read_default().get('url'))
+    except oc.Fail:
+        destination = None
     if getattr(args, 'upload', False) and destination and request_origin(destination) in targets:
         raise ValueError('ObserveContext upload origin cannot also be a captured source')
     return targets
@@ -126,7 +131,7 @@ def capture_session(args):
         try:
             from . import cli as oc
             from .uploader import Delivery
-            delivery = Delivery(oc, oc.config(), getattr(args, 'spool', None), timeout=2)
+            delivery = Delivery(oc, oc.config(args=args), getattr(args, 'spool', None), timeout=2)
         except Exception:
             print('ObserveContext: telemetry identity unavailable; sign in before capture. The command will still run.', file=sys.stderr)
     elif output is None:

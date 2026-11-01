@@ -16,7 +16,7 @@ PocketBase's existing default `users` collection serves humans and their agents.
 
 ## Collect and inspect
 
-Copy `skills/observecontext/` anywhere, or install it from this repository. The executable requires `uv` and resolves a Python 3.11+ package pinned to a full Git commit; initial installation needs network access. Set `OBSERVECONTEXT_URL` and `OBSERVECONTEXT_USER_EMAIL`; then run `observecontext login --google`. Optional `OBSERVECONTEXT_USER_PASSWORD` supports provisioned ordinary accounts. The CLI session is saved privately in `$XDG_STATE_HOME/observecontext/` (default `~/.local/state/observecontext/`), or in `OBSERVECONTEXT_SESSION_DIR` when set; a session in the old `~/.cache/observecontext/` location is moved there on first use, and `logout` removes both. The examples below assume the repository root; use the installed script's absolute path elsewhere.
+Copy `skills/observecontext/` anywhere, or install it from this repository. The executable requires `uv` and resolves a Python 3.11+ package pinned to a full Git commit; initial installation needs network access. Run `observecontext login --google --url URL --email EMAIL` once; subsequent commands use the saved defaults. Optional `OBSERVECONTEXT_USER_PASSWORD` supports provisioned ordinary accounts. The CLI session is saved privately in `$XDG_STATE_HOME/observecontext/` (default `~/.local/state/observecontext/`), or in `OBSERVECONTEXT_SESSION_DIR` when set. The examples below assume the repository root; use the installed script's absolute path elsewhere.
 
 ```sh
 ./skills/observecontext/observecontext login --google
@@ -54,6 +54,8 @@ The portable skill test builds a wheel and substitutes its local path in a copie
 launcher; release acceptance must additionally run the unchanged published launcher.
 
 ## Validation
+
+Run `python3 tests/configuration.py` for saved login settings, precedence, account isolation and logout behavior.
 
 Use synthetic data and isolated temporary databases. Install the locked browser dependency with `npm ci --ignore-scripts`, run `npm run build`, and verify the vendored SDK is unchanged with `git diff --exit-code -- web/pocketbase.es.mjs web/pocketbase.LICENSE.md`. Build the exact server pin, then run:
 
@@ -199,3 +201,11 @@ Local direct-server development may still use local storage. The old deployment
 is retired; fresh deployment is outside this change.
 
 See [CI and deployment](docs/ci-and-deployment.md) for common release controls.
+
+## Saved CLI login settings
+
+Run `observecontext login --url https://server.example.com --email you@example.com --google`. Successful explicit login writes `default.json` containing only the URL and email alongside the per-server/account token files in `$XDG_STATE_HOME/observecontext/` (default `~/.local/state/observecontext/`), or `OBSERVECONTEXT_SESSION_DIR`. Directories are mode 0700; files are mode 0600. Later commands need no URL/email exports. Passwords remain outside these files.
+
+Connection options override `OBSERVECONTEXT_URL` / `OBSERVECONTEXT_USER_EMAIL`, which override saved defaults. Put `--url` and `--email` before any command, or after a command unless that command already uses the option for a domain value. Only successful explicit login changes the default; ordinary commands, refreshes and failed login do not. `logout` removes the selected token and retains defaults; `logout --forget` also removes the default when it matches that account/server. Old cache sessions are not migrated; sign in again.
+
+For capture, a global `--url` selects the ObserveContext destination; `capture --url` continues to select the source application. Saved destination settings also work with capture.

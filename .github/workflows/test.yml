@@ -80,6 +80,8 @@ jobs:
         run: python3 observecontext/tests/dashboard_hosted.py --binary pocketcontext/bin/pocketcontext --browser-module /tmp/observe-browser/node_modules/playwright
       - name: Test installable skill
         run: python3 observecontext/tests/skill.py --binary pocketcontext/bin/pocketcontext
+      - name: Test saved CLI configuration
+        run: python3 observecontext/tests/configuration.py
       - name: Test OAuth client
         run: python3 observecontext/tests/oauth.py
       - name: Test client utilities and dashboard access

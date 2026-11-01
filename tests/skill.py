@@ -46,6 +46,9 @@ def main():
             assert password not in result.stdout+result.stderr and token not in result.stdout+result.stderr
             assert result.returncode==expected,(argv,result.returncode,result.stdout,result.stderr)
             return result.stdout
+        env.pop('OBSERVECONTEXT_URL')
+        env.pop('OBSERVECONTEXT_USER_EMAIL')
+        cli('login', '--password', '--url', request.base_url, '--email', 'skill@example.com')
         cli('whoami');cli('check')
         source=Path(tmp)/'events.jsonl'
         source.write_text(json.dumps(fixture())+'\n')
