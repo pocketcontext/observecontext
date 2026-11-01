@@ -98,6 +98,18 @@ class ConfigurationTest(unittest.TestCase):
         self.assertEqual(args.url, 'https://source.example.com')
         self.assertEqual(len(capture.capture_origins(args)), 1)
 
+    def test_capture_forwards_resolved_destination_to_packaged_child(self):
+        from observecontext_client import capture
+        self.sign_in()
+        code = "import os; assert os.environ['OBSERVECONTEXT_URL']=='https://one.example.com'; assert os.environ['OBSERVECONTEXT_USER_EMAIL']=='one@example.com'"
+        args = cli.parse(['capture', '--url', 'https://source.example.com', '--service', 'synthetic', '--upload', '--', sys.executable, '-c', code])
+        self.assertEqual(capture.run(args), 0)
+        code = "import os; assert os.environ['OBSERVECONTEXT_URL']=='https://other.example.com'; assert os.environ['OBSERVECONTEXT_USER_EMAIL']=='other@example.com'"
+        # The source equals the saved destination, but the explicit destination is different.
+        args = cli.parse(['--url', 'https://other.example.com', '--email', 'other@example.com', 'capture', '--url', self.cfg['url'], '--service', 'synthetic', '--upload', '--', sys.executable, '-c', code])
+        self.assertEqual(capture.run(args), 0)
+        self.assertEqual(cli.read_default()['url'], self.cfg['url'])
+
     def test_explicit_login_repairs_malformed_default(self):
         self.sign_in()
         cli.default_file().write_text('{bad json')

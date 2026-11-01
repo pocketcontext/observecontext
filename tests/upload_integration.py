@@ -15,7 +15,7 @@ from integration import ROOT, server
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--binary',required=True);args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--binary',required=True);parser.add_argument('--source-python',help='installed source-client interpreter, isolated from the working tree');args=parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='observecontext-upload-') as temporary:
         tmp=Path(temporary);source_root=tmp/'source';source_root.mkdir()
         for name in ['pb_hooks','pb_migrations']:(source_root/name).symlink_to(ROOT/name,target_is_directory=True)
@@ -54,6 +54,9 @@ def main():
                         assert result.returncode==expected,(argv,result.stdout,result.stderr)
                         for secret in [identities[0],identities[1],env['OBSERVECONTEXT_USER_PASSWORD']]:assert secret not in result.stdout+result.stderr
                         return result
+                    env['OBSERVECONTEXT_SESSION_DIR']=str(tmp/'custom-sessions')
+                    login_url=env.pop('OBSERVECONTEXT_URL');login_email=env.pop('OBSERVECONTEXT_USER_EMAIL')
+                    command('login','--password','--url',login_url,'--email',login_email)
                     command('whoami')
                     script=tmp/'client.py';script.write_text('''import json,os,sys,urllib.request,urllib.error
 from observecontext_client.instrumentation import instrument_cli
@@ -64,7 +67,8 @@ for path,body in [('/api/context/query',{'sql':'SELECT 42 AS synthetic'}),('/api
  with urllib.request.urlopen(request) as response:response.read()
 sys.exit(int(os.environ.get('SOURCE_EXIT','0')))
 ''') + ')\n')
-                    capture=['capture','--url',source.base_url,'--service','skill.client','--upload','--capture-sql','--','python3',str(script)]
+                    source_command=[args.source_python,'-I',str(script)] if args.source_python else ['python3',str(script)]
+                    capture=['capture','--url',source.base_url,'--service','skill.client','--upload','--capture-sql','--',*source_command]
                     result=command(*capture)
                     assert 'delivered 2' in result.stderr,result.stderr
                     token=identities[1]

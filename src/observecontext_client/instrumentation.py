@@ -10,7 +10,7 @@ CONFIG_ENV = "OBSERVECONTEXT_CAPTURE_V1"
 _active = False
 
 
-def configuration(raw):
+def configuration(raw, connection=None):
     if len(raw) > 32768:
         raise ValueError("capture configuration too large")
     data = json.loads(raw)
@@ -28,6 +28,9 @@ def configuration(raw):
     if type(data["flush_timeout"]) is not int or not 1 <= data["flush_timeout"] <= 120:
         raise ValueError("invalid flush timeout")
     args = SimpleNamespace(**data)
+    if connection:
+        args.connection_url = connection['url']
+        args.connection_email = connection['email']
     capture_origins(args)
     if not args.upload and not args.output:
         raise ValueError("capture requires output or upload")

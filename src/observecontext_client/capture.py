@@ -299,6 +299,13 @@ def run(args):
     import signal
     import tempfile
     from .instrumentation import CONFIG_ENV, configuration
+    from . import cli as oc
+    connection = None
+    if args.upload:
+        try:
+            connection = oc.config(args=args)
+        except oc.Fail:
+            pass  # Missing telemetry identity must not prevent the wrapped command.
     payload = dict(version=1, url=args.url, origin=args.origin or [], service=args.service,
                    output=str(Path(args.output).absolute()) if args.output else None,
                    upload=args.upload, spool=str(Path(args.spool).absolute()) if args.spool else None,
@@ -307,8 +314,10 @@ def run(args):
         status = Path(directory) / "activation.jsonl"
         payload["status_file"] = str(status)
         raw = json.dumps(payload, separators=(",", ":"))
-        configuration(raw)
+        configuration(raw, connection=connection)
         env = dict(os.environ, **{CONFIG_ENV: raw})
+        if connection:
+            env.update(OBSERVECONTEXT_URL=connection['url'], OBSERVECONTEXT_USER_EMAIL=connection['email'])
         # Inherit streams: prompts, binary output and terminal behavior survive.
         process = subprocess.Popen([args.executable, *args.arguments], env=env)
         handlers = {}
