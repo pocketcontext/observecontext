@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["observecontext-client"]
 # [tool.uv.sources]
-# observecontext-client = { git = "https://github.com/pocketcontext/observecontext.git", rev = "4499be099da1bb04c2ea7404590cc4c36eed92ea" }
+# observecontext-client = { git = "https://github.com/pocketcontext/observecontext.git", rev = "1a890535c57cac2cf0fcaaade1634edb79c7fd5e" }
 # ///
 from observecontext_client.cli import main
 
